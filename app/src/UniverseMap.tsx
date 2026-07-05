@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { densityDilutionFactor, type CosmologyState } from './cosmology'
 import DensityLayer from './DensityLayer'
+import MilkyWayLayer from './MilkyWayLayer'
 import { DENSITY_STYLE_LABELS, type DensityStyle } from './colormaps'
 
 /**
@@ -11,7 +12,7 @@ import { DENSITY_STYLE_LABELS, type DensityStyle } from './colormaps'
  * qu'occupait le zoom auparavant).
  */
 
-const MIN_HALF_WIDTH_MPC = 1
+const MIN_HALF_WIDTH_MPC = 0.02 // ~65 000 al — la Voie lactée (rayon 52 000 al) remplit le cadre
 const MAX_HALF_WIDTH_MPC = 14570 // ~95 Gal de côté au total
 const GLY_PER_MPC = 3.26156e-3
 
@@ -38,7 +39,8 @@ function formatDistance(mpc: number): string {
   if (gly >= 1) return `${gly.toLocaleString('fr-FR', { maximumFractionDigits: 2 })} Gal`
   const mly = gly * 1000
   if (mly >= 1) return `${mly.toLocaleString('fr-FR', { maximumFractionDigits: 1 })} Mal`
-  return `${mpc.toLocaleString('fr-FR', { maximumFractionDigits: 2 })} Mpc`
+  const ly = mly * 1e6
+  return `${Math.round(ly).toLocaleString('fr-FR')} al`
 }
 
 function niceGridStep(target: number): number {
@@ -188,6 +190,7 @@ export default function UniverseMap({ cosmology, tGyr, tMin, tMax, onTimeChange 
 
         <div style={{ position: 'relative', width: '100%', maxWidth: 640, aspectRatio: '1/1' }}>
           <DensityLayer style={densityStyle} opacity={densityPresence} halfWidthMpc={halfWidthMpc} />
+          <MilkyWayLayer halfWidthMpc={halfWidthMpc} opacity={densityPresence} />
           <canvas
             ref={canvasRef}
             width={640}
@@ -229,9 +232,9 @@ export default function UniverseMap({ cosmology, tGyr, tMin, tMax, onTimeChange 
             — dilution de densité ×{dilution.toLocaleString('fr-FR', { maximumFractionDigits: dilution > 100 ? 0 : 1 })} par rapport à aujourd'hui.
           </p>
           <p style={{ fontSize: 10, color: '#555' }}>
-            4 layers procéduraux (héritage hiérarchique entre échelles) avec fondu au zoom sur les
-            frontières d'échelle. Le layer 1 (local) n'est pas encore procédural. Le temps n'affecte pas
-            encore visuellement la densité — prochaine étape.
+            Voie lactée (modèle partagé avec « Le silence du cosmos ») + 4 layers procéduraux avec
+            héritage hiérarchique et fondu au zoom. Le temps n'affecte pas encore visuellement la densité
+            — prochaine étape.
           </p>
         </div>
       </div>
