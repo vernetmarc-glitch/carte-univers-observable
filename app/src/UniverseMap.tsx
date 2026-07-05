@@ -211,12 +211,18 @@ export default function UniverseMap({ cosmology, tGyr, tMin, tMax, onTimeChange 
               position: 'absolute',
               bottom: 8,
               left: 10,
+              maxWidth: 'calc(100% - 20px)',
+              width: 230,
               fontSize: 11,
               color: layer.color,
               background: 'rgba(0,0,0,0.45)',
               padding: '2px 8px',
               borderRadius: 4,
               pointerEvents: 'none',
+              whiteSpace: 'nowrap',
+              overflow: 'hidden',
+              textOverflow: 'ellipsis',
+              boxSizing: 'border-box',
             }}
           >
             {layer.name}
