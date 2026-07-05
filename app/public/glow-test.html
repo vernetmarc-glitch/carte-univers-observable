@@ -1,0 +1,161 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Calibration glow — Groupe Local vs densité L2</title>
+<style>
+  html, body { margin: 0; padding: 0; background: #05050a; color: #eee; font-family: system-ui, sans-serif; }
+  .wrap { padding: 16px; }
+  h1 { font-size: 16px; font-weight: 600; }
+  p { font-size: 13px; color: #999; max-width: 640px; }
+  .views { display: flex; gap: 12px; flex-wrap: wrap; }
+  .view { flex: 1; min-width: 260px; }
+  .view h2 { font-size: 12px; color: #aaa; margin: 0 0 6px; }
+  canvas { width: 100%; aspect-ratio: 1/1; background: #000; border-radius: 8px; display: block; }
+  .controls { margin-top: 16px; max-width: 640px; }
+  .controls label { font-size: 13px; display: block; margin-bottom: 4px; }
+  .controls input[type=range] { width: 100%; }
+  .stat { font-size: 11px; color: #777; margin-top: 4px; font-family: monospace; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Calibration : galaxies simulées (glow) vs densité générée (L2)</h1>
+  <p>Même zone (10 Mpc de demi-champ), même catalogue de galaxies pour les deux vues. Ajustez le curseur
+  jusqu'à ce que la luminosité perçue des points à droite corresponde à celle des taches de densité à gauche.</p>
+
+  <div class="views">
+    <div class="view">
+      <h2>Référence — texture de densité (L2)</h2>
+      <canvas id="canvasDensity" width="480" height="480"></canvas>
+      <div class="stat" id="statDensity"></div>
+    </div>
+    <div class="view">
+      <h2>Galaxies simulées (points + glow ajustable)</h2>
+      <canvas id="canvasPoints" width="480" height="480"></canvas>
+      <div class="stat" id="statPoints"></div>
+    </div>
+  </div>
+
+  <div class="controls">
+    <label>Intensité du glow : <span id="glowLabel">1.0</span>×</label>
+    <input type="range" id="glowSlider" min="0.3" max="6" step="0.05" value="1.0" />
+    <label style="margin-top:12px">Rayon de base (px) : <span id="radiusLabel">4</span></label>
+    <input type="range" id="radiusSlider" min="1" max="14" step="0.5" value="4" />
+  </div>
+</div>
+
+<script>
+const HALF_WIDTH_MPC = 10;
+const L2_MAX_MPC = 30;
+const L2_TEXTURE_SIZE = 512;
+
+// Palette "Astro" (copiée de colormaps.ts pour ce test autonome)
+const ASTRO_STOPS = [
+  [0,0,0], [0x17,0x0a,0x05], [0x4a,0x1f,0x0a], [0xa8,0x48,0x0f], [0xe8,0xa1,0x3a], [0xff,0xf3,0xd6]
+];
+function colorForValue(t) {
+  t = Math.min(Math.max(t,0),1);
+  const n = ASTRO_STOPS.length - 1;
+  const idx = Math.min(Math.floor(t*n), n-1);
+  const frac = t*n - idx;
+  const a = ASTRO_STOPS[idx], b = ASTRO_STOPS[idx+1];
+  return [
+    a[0]+(b[0]-a[0])*frac,
+    a[1]+(b[1]-a[1])*frac,
+    a[2]+(b[2]-a[2])*frac,
+  ];
+}
+
+function averageBrightness(ctx, size) {
+  const data = ctx.getImageData(0,0,size,size).data;
+  let sum = 0;
+  for (let i=0;i<data.length;i+=4) sum += (data[i]+data[i+1]+data[i+2])/3;
+  return sum / (data.length/4);
+}
+
+// --- Vue 1 : crop de la texture de densité L2 ---
+const densityImg = new Image();
+densityImg.src = 'data/density_l2.png';
+densityImg.onload = () => {
+  const canvas = document.getElementById('canvasDensity');
+  const ctx = canvas.getContext('2d');
+  const off = document.createElement('canvas');
+  off.width = densityImg.naturalWidth; off.height = densityImg.naturalHeight;
+  const octx = off.getContext('2d');
+  octx.drawImage(densityImg,0,0);
+  const gray = octx.getImageData(0,0,off.width, off.height);
+
+  const frac = HALF_WIDTH_MPC / L2_MAX_MPC;
+  const cropSize = Math.round(L2_TEXTURE_SIZE * frac);
+  const start = Math.round((L2_TEXTURE_SIZE - cropSize)/2);
+
+  const out = ctx.createImageData(canvas.width, canvas.height);
+  // Recadrage + coloration + mise à l'échelle (plus proche voisin, suffisant ici)
+  for (let y=0;y<canvas.height;y++){
+    for (let x=0;x<canvas.width;x++){
+      const srcX = start + Math.floor(x/canvas.width*cropSize);
+      const srcY = start + Math.floor(y/canvas.height*cropSize);
+      const srcIdx = (srcY*off.width+srcX)*4;
+      const v = gray.data[srcIdx]/255;
+      const [r,g,b] = colorForValue(v);
+      const dstIdx = (y*canvas.width+x)*4;
+      out.data[dstIdx]=r; out.data[dstIdx+1]=g; out.data[dstIdx+2]=b; out.data[dstIdx+3]=255;
+    }
+  }
+  ctx.putImageData(out,0,0);
+  document.getElementById('statDensity').textContent = 'Luminosité moyenne : ' + averageBrightness(ctx, canvas.width).toFixed(1) + ' / 255';
+};
+
+// --- Vue 2 : galaxies simulées (points + glow) ---
+let catalog = [];
+fetch('data/local_group_catalog.json').then(r=>r.json()).then(data => {
+  catalog = data.filter(g => g.distanceMpc <= HALF_WIDTH_MPC * 1.05);
+  drawPoints();
+});
+
+function drawPoints() {
+  const canvas = document.getElementById('canvasPoints');
+  const ctx = canvas.getContext('2d');
+  const size = canvas.width;
+  ctx.clearRect(0,0,size,size);
+  ctx.fillStyle = 'rgb(0,0,0)';
+  ctx.fillRect(0,0,size,size);
+
+  const scale = size/2/HALF_WIDTH_MPC;
+  const originX = size/2, originY = size/2;
+  const glow = parseFloat(document.getElementById('glowSlider').value);
+  const baseRadius = parseFloat(document.getElementById('radiusSlider').value);
+
+  for (const gal of catalog) {
+    const rad = gal.angleDeg * Math.PI/180;
+    const x = originX + Math.cos(rad)*gal.distanceMpc*scale;
+    const y = originY + Math.sin(rad)*gal.distanceMpc*scale;
+    const rPx = Math.max(gal.radiusMpc*scale, baseRadius) * glow;
+    if (x<-rPx || x>size+rPx || y<-rPx || y>size+rPx) continue;
+
+    const [r,g,b] = colorForValue(Math.min(gal.brightness + 0.15, 1));
+    const gradient = ctx.createRadialGradient(x,y,0,x,y,rPx);
+    gradient.addColorStop(0, `rgba(${r},${g},${b},${Math.min(0.95*glow,1)})`);
+    gradient.addColorStop(0.5, `rgba(${r},${g},${b},${Math.min(0.4*glow,0.9)})`);
+    gradient.addColorStop(1, `rgba(${r},${g},${b},0)`);
+    ctx.fillStyle = gradient;
+    ctx.beginPath();
+    ctx.arc(x,y,rPx,0,Math.PI*2);
+    ctx.fill();
+  }
+  document.getElementById('statPoints').textContent = 'Luminosité moyenne : ' + averageBrightness(ctx, size).toFixed(1) + ' / 255';
+}
+
+document.getElementById('glowSlider').addEventListener('input', (e) => {
+  document.getElementById('glowLabel').textContent = parseFloat(e.target.value).toFixed(2);
+  drawPoints();
+});
+document.getElementById('radiusSlider').addEventListener('input', (e) => {
+  document.getElementById('radiusLabel').textContent = e.target.value;
+  drawPoints();
+});
+</script>
+</body>
+</html>
