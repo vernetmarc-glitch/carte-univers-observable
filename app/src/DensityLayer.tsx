@@ -1,15 +1,15 @@
 import { useEffect, useRef } from 'react'
 import { buildLookupTable, type DensityStyle } from './colormaps'
+import { getLayerWeights } from './layerWeights'
 
 interface ProceduralLayer {
   key: 'l2' | 'l3' | 'l4' | 'l4b' | 'l5'
   maxMpc: number
 }
 
-// Du plus petit au plus grand — cf. document d'architecture §4.1 (layer 1, local,
-// n'est pas procédural et n'a pas de texture). "l4b" est un palier technique
-// intermédiaire (pas un 6e layer scientifique), ajouté pour que le ratio
-// d'échelle entre deux textures consécutives reste raisonnable au rendu.
+// Du plus petit au plus grand — cf. document d'architecture §4.1. Le layer 1
+// (local) est géré séparément par MilkyWayLayer (rendu de points, pas une
+// texture), et n'apparaît donc pas ici.
 const PROCEDURAL_LAYERS: ProceduralLayer[] = [
   { key: 'l2', maxMpc: 30 },
   { key: 'l3', maxMpc: 150 },
@@ -17,31 +17,6 @@ const PROCEDURAL_LAYERS: ProceduralLayer[] = [
   { key: 'l4b', maxMpc: 2100 },
   { key: 'l5', maxMpc: 14570 },
 ]
-
-const BOUNDARY_EDGES = [30, 150, 300, 2100] // entre l2/l3, l3/l4, l4/l4b, l4b/l5
-const FADE_WIDTH_DEX = 0.15 // largeur de la zone de fondu, en décades (log10)
-
-function smoothstep(edge0: number, edge1: number, x: number): number {
-  const t = Math.min(Math.max((x - edge0) / (edge1 - edge0), 0), 1)
-  return t * t * (3 - 2 * t)
-}
-
-/** Poids de mélange des 5 layers procéduraux pour un champ de vue donné (partition de 1). */
-function getLayerWeights(halfWidthMpc: number): Record<string, number> {
-  const x = Math.log10(halfWidthMpc)
-  const [e23, e34, e44b, e4b5] = BOUNDARY_EDGES.map(Math.log10)
-  const w23 = smoothstep(e23 - FADE_WIDTH_DEX, e23 + FADE_WIDTH_DEX, x)
-  const w34 = smoothstep(e34 - FADE_WIDTH_DEX, e34 + FADE_WIDTH_DEX, x)
-  const w44b = smoothstep(e44b - FADE_WIDTH_DEX, e44b + FADE_WIDTH_DEX, x)
-  const w4b5 = smoothstep(e4b5 - FADE_WIDTH_DEX, e4b5 + FADE_WIDTH_DEX, x)
-  return {
-    l2: 1 - w23,
-    l3: w23 * (1 - w34),
-    l4: w34 * (1 - w44b),
-    l4b: w44b * (1 - w4b5),
-    l5: w4b5,
-  }
-}
 
 interface DensityLayerProps {
   style: DensityStyle
