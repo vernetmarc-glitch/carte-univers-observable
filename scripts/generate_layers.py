@@ -26,9 +26,14 @@ GAMMA = OMEGA_M * H
 
 N = 512  # résolution commune à tous les layers
 
-# (clé, demi-largeur en Mpc comobiles, seed) — de la plus grande à la plus petite échelle
+# (clé, demi-largeur en Mpc comobiles, seed) — de la plus grande à la plus petite échelle.
+# "l4b" est un palier technique intermédiaire (pas un 6e layer scientifique) ajouté
+# uniquement pour que le ratio d'échelle entre deux textures consécutives reste
+# raisonnable (le saut direct L4->L5, ratio 48.6x, produisait un recadrage à
+# seulement ~10 px sources — bien trop pixelisé pour un fondu propre).
 LAYER_SPECS = [
     {"key": "l5", "max_mpc": 14570.0, "seed": 42},
+    {"key": "l4b", "max_mpc": 2100.0, "seed": 55},
     {"key": "l4", "max_mpc": 300.0, "seed": 101},
     {"key": "l3", "max_mpc": 150.0, "seed": 102},
     {"key": "l2", "max_mpc": 30.0, "seed": 103},
@@ -100,9 +105,11 @@ def normalize_variance(field, target=1.0):
     return field / std * target if std > 0 else field
 
 
-def export_layer_png(field, path):
-    log_density = np.log10(np.exp(field - field.var() / 2.0) + 0.05)
-    vmin, vmax = np.percentile(log_density, [1, 99.7])
+def field_to_log_density(field):
+    return np.log10(np.exp(field - field.var() / 2.0) + 0.05)
+
+
+def export_layer_png(log_density, vmin, vmax, path):
     norm = np.clip((log_density - vmin) / (vmax - vmin), 0, 1)
     img_data = (norm * 255).astype(np.uint8)
     Image.fromarray(img_data, mode="L").save(path)
@@ -115,14 +122,12 @@ def main():
 
     for spec in LAYER_SPECS:
         if prev_field is None:
-            # Layer le plus grand (L5) : pas de parent, P(k) complet
             field = generate_raw_field(N, 2 * spec["max_mpc"], spec["seed"])
             field = normalize_variance(field)
         else:
             coarse_trend = crop_and_upsample(
                 prev_field, prev_spec["max_mpc"], spec["max_mpc"], N
             )
-            # Fréquence de Nyquist physique du parent (ce qu'il pouvait représenter)
             k_transition = np.pi * N / (2 * prev_spec["max_mpc"])
             detail = generate_raw_field(
                 N, 2 * spec["max_mpc"], spec["seed"], highpass_k=k_transition
@@ -130,12 +135,22 @@ def main():
             field = normalize_variance(coarse_trend) * 0.6 + normalize_variance(detail) * 0.9
 
         fields[spec["key"]] = field
-        out_path = f"../app/public/data/density_{spec['key']}.png"
-        export_layer_png(field, out_path)
-        print(f"{spec['key']} (max {spec['max_mpc']} Mpc) -> {out_path}")
-
         prev_spec = spec
         prev_field = field
+
+    # --- Normalisation PARTAGÉE entre tous les layers ---
+    # (au lieu d'une normalisation par percentiles propre à chaque layer, qui
+    # provoquait un désalignement de contraste/luminosité au moment du fondu
+    # entre deux layers adjacents).
+    log_densities = {k: field_to_log_density(f) for k, f in fields.items()}
+    pooled = np.concatenate([ld.ravel() for ld in log_densities.values()])
+    vmin, vmax = np.percentile(pooled, [1, 99.7])
+    print(f"Normalisation partagee : vmin={vmin:.3f} vmax={vmax:.3f}")
+
+    for spec in LAYER_SPECS:
+        out_path = f"../app/public/data/density_{spec['key']}.png"
+        export_layer_png(log_densities[spec["key"]], vmin, vmax, out_path)
+        print(f"{spec['key']} (max {spec['max_mpc']} Mpc) -> {out_path}")
 
 
 if __name__ == "__main__":
