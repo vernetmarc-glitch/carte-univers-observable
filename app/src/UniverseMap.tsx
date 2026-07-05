@@ -238,21 +238,25 @@ export default function UniverseMap({ cosmology, tGyr, tMin, tMax, onTimeChange 
 
       <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', width: 48 }}>
         <span style={{ fontSize: 10, color: '#999', writingMode: 'vertical-rl', marginBottom: 4 }}>zoom +</span>
-        <input
-          type="range"
-          min={Math.log10(MIN_HALF_WIDTH_MPC)}
-          max={Math.log10(MAX_HALF_WIDTH_MPC)}
-          step={0.002}
-          value={logHalfWidth}
-          onChange={(e) => setLogHalfWidth(Number(e.target.value))}
-          {...({ orient: 'vertical' } as Record<string, string>)}
-          style={{
-            WebkitAppearance: 'slider-vertical' as any,
-            width: 24,
-            height: 460,
-            flex: 1,
-          }}
-        />
+        <div style={{ width: 40, height: 460, position: 'relative' }}>
+          <input
+            type="range"
+            min={Math.log10(MIN_HALF_WIDTH_MPC)}
+            max={Math.log10(MAX_HALF_WIDTH_MPC)}
+            step={0.002}
+            value={logHalfWidth}
+            onChange={(e) => setLogHalfWidth(Number(e.target.value))}
+            style={{
+              position: 'absolute',
+              width: 460,
+              height: 32,
+              top: '50%',
+              left: '50%',
+              transform: 'translate(-50%, -50%) rotate(90deg)',
+              margin: 0,
+            }}
+          />
+        </div>
         <span style={{ fontSize: 10, color: '#999', writingMode: 'vertical-rl', marginTop: 4 }}>zoom −</span>
         <div style={{ fontSize: 10, color: layer.color, textAlign: 'center', marginTop: 8, writingMode: 'vertical-rl' }}>
           {layer.name}
