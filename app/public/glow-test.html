@@ -39,7 +39,9 @@
   </div>
 
   <div class="controls">
-    <label>Intensité du glow : <span id="glowLabel">1.0</span>×</label>
+    <label>Flou sur la texture de densité (px) : <span id="blurLabel">0</span></label>
+    <input type="range" id="blurSlider" min="0" max="20" step="0.5" value="0" />
+    <label style="margin-top:12px">Intensité du glow (points) : <span id="glowLabel">1.0</span>×</label>
     <input type="range" id="glowSlider" min="0.3" max="6" step="0.05" value="1.0" />
     <label style="margin-top:12px">Rayon de base (px) : <span id="radiusLabel">4</span></label>
     <input type="range" id="radiusSlider" min="1" max="14" step="0.5" value="4" />
@@ -76,37 +78,55 @@ function averageBrightness(ctx, size) {
 }
 
 // --- Vue 1 : crop de la texture de densité L2 ---
+let grayData = null, offW = 0, offH = 0;
 const densityImg = new Image();
 densityImg.src = 'data/density_l2.png';
 densityImg.onload = () => {
-  const canvas = document.getElementById('canvasDensity');
-  const ctx = canvas.getContext('2d');
   const off = document.createElement('canvas');
   off.width = densityImg.naturalWidth; off.height = densityImg.naturalHeight;
   const octx = off.getContext('2d');
   octx.drawImage(densityImg,0,0);
-  const gray = octx.getImageData(0,0,off.width, off.height);
+  grayData = octx.getImageData(0,0,off.width, off.height);
+  offW = off.width; offH = off.height;
+  drawDensity();
+};
+
+function drawDensity() {
+  if (!grayData) return;
+  const canvas = document.getElementById('canvasDensity');
+  const ctx = canvas.getContext('2d');
+  const blurPx = parseFloat(document.getElementById('blurSlider').value);
 
   const frac = HALF_WIDTH_MPC / L2_MAX_MPC;
   const cropSize = Math.round(L2_TEXTURE_SIZE * frac);
   const start = Math.round((L2_TEXTURE_SIZE - cropSize)/2);
 
-  const out = ctx.createImageData(canvas.width, canvas.height);
-  // Recadrage + coloration + mise à l'échelle (plus proche voisin, suffisant ici)
+  // Étape 1 : colorisation + recadrage dans un canvas intermédiaire (non flouté)
+  const tmp = document.createElement('canvas');
+  tmp.width = canvas.width; tmp.height = canvas.height;
+  const tctx = tmp.getContext('2d');
+  const out = tctx.createImageData(canvas.width, canvas.height);
   for (let y=0;y<canvas.height;y++){
     for (let x=0;x<canvas.width;x++){
       const srcX = start + Math.floor(x/canvas.width*cropSize);
       const srcY = start + Math.floor(y/canvas.height*cropSize);
-      const srcIdx = (srcY*off.width+srcX)*4;
-      const v = gray.data[srcIdx]/255;
+      const srcIdx = (srcY*offW+srcX)*4;
+      const v = grayData.data[srcIdx]/255;
       const [r,g,b] = colorForValue(v);
       const dstIdx = (y*canvas.width+x)*4;
       out.data[dstIdx]=r; out.data[dstIdx+1]=g; out.data[dstIdx+2]=b; out.data[dstIdx+3]=255;
     }
   }
-  ctx.putImageData(out,0,0);
+  tctx.putImageData(out,0,0);
+
+  // Étape 2 : dessin flouté (le filtre canvas s'applique à drawImage, pas à putImageData)
+  ctx.clearRect(0,0,canvas.width,canvas.height);
+  ctx.filter = blurPx > 0.05 ? `blur(${blurPx}px)` : 'none';
+  ctx.drawImage(tmp, 0, 0);
+  ctx.filter = 'none';
+
   document.getElementById('statDensity').textContent = 'Luminosité moyenne : ' + averageBrightness(ctx, canvas.width).toFixed(1) + ' / 255';
-};
+}
 
 // --- Vue 2 : galaxies simulées (points + glow) ---
 let catalog = [];
@@ -148,6 +168,10 @@ function drawPoints() {
   document.getElementById('statPoints').textContent = 'Luminosité moyenne : ' + averageBrightness(ctx, size).toFixed(1) + ' / 255';
 }
 
+document.getElementById('blurSlider').addEventListener('input', (e) => {
+  document.getElementById('blurLabel').textContent = e.target.value;
+  drawDensity();
+});
 document.getElementById('glowSlider').addEventListener('input', (e) => {
   document.getElementById('glowLabel').textContent = parseFloat(e.target.value).toFixed(2);
   drawPoints();
