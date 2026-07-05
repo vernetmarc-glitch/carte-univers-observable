@@ -187,7 +187,7 @@ export default function UniverseMap({ cosmology, tGyr, tMin, tMax, onTimeChange 
         </div>
 
         <div style={{ position: 'relative', width: '100%', maxWidth: 640, aspectRatio: '1/1' }}>
-          <DensityLayer style={densityStyle} opacity={densityPresence} size={640} />
+          <DensityLayer style={densityStyle} opacity={densityPresence} />
           <canvas
             ref={canvasRef}
             width={640}
