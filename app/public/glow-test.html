@@ -3,48 +3,66 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>Calibration glow — Groupe Local vs densité L2</title>
+<title>Calibration — Groupe Local vs densité L2</title>
 <style>
-  html, body { margin: 0; padding: 0; background: #05050a; color: #eee; font-family: system-ui, sans-serif; }
-  .wrap { padding: 16px; }
-  h1 { font-size: 16px; font-weight: 600; }
-  p { font-size: 13px; color: #999; max-width: 640px; }
-  .views { display: flex; gap: 12px; flex-wrap: wrap; }
-  .view { flex: 1; min-width: 260px; }
-  .view h2 { font-size: 12px; color: #aaa; margin: 0 0 6px; }
-  canvas { width: 100%; aspect-ratio: 1/1; background: #000; border-radius: 8px; display: block; }
-  .controls { margin-top: 16px; max-width: 640px; }
-  .controls label { font-size: 13px; display: block; margin-bottom: 4px; }
-  .controls input[type=range] { width: 100%; }
-  .stat { font-size: 11px; color: #777; margin-top: 4px; font-family: monospace; }
+  html, body { margin: 0; padding: 0; background: #05050a; color: #eee; font-family: system-ui, sans-serif; height: 100%; overflow: hidden; }
+  .wrap { padding: 8px 10px; display: flex; flex-direction: column; height: 100dvh; box-sizing: border-box; }
+  h1 { font-size: 12px; font-weight: 600; margin: 0 0 6px; color: #ccc; }
+  .views { display: flex; gap: 6px; }
+  .view { flex: 1; min-width: 0; }
+  .view h2 { font-size: 9px; color: #999; margin: 0 0 2px; font-weight: 500; }
+  canvas { width: 100%; aspect-ratio: 1/1; background: #000; border-radius: 6px; display: block; }
+  .stat { font-size: 9px; color: #777; margin-top: 2px; font-family: monospace; }
+  .controls { margin-top: 8px; flex: 1; overflow: hidden; display: flex; flex-direction: column; gap: 6px; }
+  .ctrl { display: flex; align-items: center; gap: 6px; }
+  .ctrl label { font-size: 10px; color: #bbb; width: 128px; flex-shrink: 0; line-height: 1.2; }
+  .ctrl input[type=range] { flex: 1; height: 20px; }
+  .ctrl .val { font-size: 10px; color: #7fd1ff; width: 34px; flex-shrink: 0; text-align: right; font-family: monospace; }
 </style>
 </head>
 <body>
 <div class="wrap">
-  <h1>Calibration : galaxies simulées (glow) vs densité générée (L2)</h1>
-  <p>Même zone (10 Mpc de demi-champ), même catalogue de galaxies pour les deux vues. Ajustez le curseur
-  jusqu'à ce que la luminosité perçue des points à droite corresponde à celle des taches de densité à gauche.</p>
+  <h1>Calibration Groupe Local ↔ densité L2 — 10 Mpc de demi-champ</h1>
 
   <div class="views">
     <div class="view">
-      <h2>Référence — texture de densité (L2)</h2>
-      <canvas id="canvasDensity" width="480" height="480"></canvas>
+      <h2>Densité L2 (filtrée en fréquence)</h2>
+      <canvas id="canvasDensity" width="256" height="256"></canvas>
       <div class="stat" id="statDensity"></div>
     </div>
     <div class="view">
-      <h2>Galaxies simulées (points + glow ajustable)</h2>
-      <canvas id="canvasPoints" width="480" height="480"></canvas>
+      <h2>Galaxies simulées (glow dynamique)</h2>
+      <canvas id="canvasPoints" width="256" height="256"></canvas>
       <div class="stat" id="statPoints"></div>
     </div>
   </div>
 
   <div class="controls">
-    <label>Flou sur la texture de densité (px) : <span id="blurLabel">0</span></label>
-    <input type="range" id="blurSlider" min="0" max="20" step="0.5" value="0" />
-    <label style="margin-top:12px">Intensité du glow (points) : <span id="glowLabel">1.0</span>×</label>
-    <input type="range" id="glowSlider" min="0.3" max="6" step="0.05" value="1.0" />
-    <label style="margin-top:12px">Rayon de base (px) : <span id="radiusLabel">4</span></label>
-    <input type="range" id="radiusSlider" min="1" max="14" step="0.5" value="4" />
+    <div class="ctrl">
+      <label>Coupure fréquentielle</label>
+      <input type="range" id="cutoffSlider" min="1" max="64" step="1" value="64" />
+      <span class="val" id="cutoffVal">64</span>
+    </div>
+    <div class="ctrl">
+      <label>Rayon de base (px)</label>
+      <input type="range" id="radiusSlider" min="1" max="14" step="0.5" value="4" />
+      <span class="val" id="radiusVal">4</span>
+    </div>
+    <div class="ctrl">
+      <label>Glow au bord (10 Mpc)</label>
+      <input type="range" id="glowEdgeSlider" min="0.3" max="8" step="0.1" value="3" />
+      <span class="val" id="glowEdgeVal">3.0</span>
+    </div>
+    <div class="ctrl">
+      <label>Glow au centre (0 Mpc)</label>
+      <input type="range" id="glowCenterSlider" min="0.1" max="4" step="0.1" value="0.8" />
+      <span class="val" id="glowCenterVal">0.8</span>
+    </div>
+    <div class="ctrl">
+      <label>Position simulée</label>
+      <input type="range" id="posSlider" min="0" max="1" step="0.01" value="1" />
+      <span class="val" id="posVal">1.0</span>
+    </div>
   </div>
 </div>
 
@@ -52,8 +70,8 @@
 const HALF_WIDTH_MPC = 10;
 const L2_MAX_MPC = 30;
 const L2_TEXTURE_SIZE = 512;
+const FFT_N = 128; // puissance de 2, résolution de travail pour le filtrage
 
-// Palette "Astro" (copiée de colormaps.ts pour ce test autonome)
 const ASTRO_STOPS = [
   [0,0,0], [0x17,0x0a,0x05], [0x4a,0x1f,0x0a], [0xa8,0x48,0x0f], [0xe8,0xa1,0x3a], [0xff,0xf3,0xd6]
 ];
@@ -63,13 +81,8 @@ function colorForValue(t) {
   const idx = Math.min(Math.floor(t*n), n-1);
   const frac = t*n - idx;
   const a = ASTRO_STOPS[idx], b = ASTRO_STOPS[idx+1];
-  return [
-    a[0]+(b[0]-a[0])*frac,
-    a[1]+(b[1]-a[1])*frac,
-    a[2]+(b[2]-a[2])*frac,
-  ];
+  return [a[0]+(b[0]-a[0])*frac, a[1]+(b[1]-a[1])*frac, a[2]+(b[2]-a[2])*frac];
 }
-
 function averageBrightness(ctx, size) {
   const data = ctx.getImageData(0,0,size,size).data;
   let sum = 0;
@@ -77,8 +90,67 @@ function averageBrightness(ctx, size) {
   return sum / (data.length/4);
 }
 
-// --- Vue 1 : crop de la texture de densité L2 ---
-let grayData = null, offW = 0, offH = 0;
+// --- FFT radix-2 itérative (in-place, tableaux de longueur puissance de 2) ---
+function fft1d(re, im, invert) {
+  const n = re.length;
+  for (let i=1, j=0; i<n; i++){
+    let bit = n>>1;
+    for (; j&bit; bit>>=1) j^=bit;
+    j^=bit;
+    if (i<j){ [re[i],re[j]]=[re[j],re[i]]; [im[i],im[j]]=[im[j],im[i]]; }
+  }
+  for (let len=2; len<=n; len<<=1){
+    const ang = 2*Math.PI/len * (invert?-1:1);
+    const wr0 = Math.cos(ang), wi0 = Math.sin(ang);
+    for (let i=0;i<n;i+=len){
+      let curWr=1, curWi=0;
+      for (let j=0;j<len/2;j++){
+        const ur=re[i+j], ui=im[i+j];
+        const vr=re[i+j+len/2]*curWr - im[i+j+len/2]*curWi;
+        const vi=re[i+j+len/2]*curWi + im[i+j+len/2]*curWr;
+        re[i+j]=ur+vr; im[i+j]=ui+vi;
+        re[i+j+len/2]=ur-vr; im[i+j+len/2]=ui-vi;
+        const nWr = curWr*wr0 - curWi*wi0;
+        const nWi = curWr*wi0 + curWi*wr0;
+        curWr=nWr; curWi=nWi;
+      }
+    }
+  }
+  if (invert){ for(let i=0;i<n;i++){ re[i]/=n; im[i]/=n; } }
+}
+
+function fft2d(re, im, n, invert) {
+  // Lignes
+  for (let y=0;y<n;y++){
+    const rowRe = re.subarray(y*n,(y+1)*n), rowIm = im.subarray(y*n,(y+1)*n);
+    fft1d(rowRe, rowIm, invert);
+  }
+  // Colonnes
+  const colRe = new Float64Array(n), colIm = new Float64Array(n);
+  for (let x=0;x<n;x++){
+    for (let y=0;y<n;y++){ colRe[y]=re[y*n+x]; colIm[y]=im[y*n+x]; }
+    fft1d(colRe, colIm, invert);
+    for (let y=0;y<n;y++){ re[y*n+x]=colRe[y]; im[y*n+x]=colIm[y]; }
+  }
+}
+
+function lowPassFilter(values, n, cutoff) {
+  const re = Float64Array.from(values), im = new Float64Array(n*n);
+  fft2d(re, im, n, false);
+  for (let y=0;y<n;y++){
+    const fy = y<=n/2 ? y : y-n;
+    for (let x=0;x<n;x++){
+      const fx = x<=n/2 ? x : x-n;
+      const r = Math.sqrt(fx*fx+fy*fy);
+      if (r > cutoff) { re[y*n+x]=0; im[y*n+x]=0; }
+    }
+  }
+  fft2d(re, im, n, true);
+  return re;
+}
+
+// --- Chargement de la texture L2 et extraction du crop en 128x128 ---
+let cropValues = null;
 const densityImg = new Image();
 densityImg.src = 'data/density_l2.png';
 densityImg.onload = () => {
@@ -86,49 +158,53 @@ densityImg.onload = () => {
   off.width = densityImg.naturalWidth; off.height = densityImg.naturalHeight;
   const octx = off.getContext('2d');
   octx.drawImage(densityImg,0,0);
-  grayData = octx.getImageData(0,0,off.width, off.height);
-  offW = off.width; offH = off.height;
-  drawDensity();
-};
-
-function drawDensity() {
-  if (!grayData) return;
-  const canvas = document.getElementById('canvasDensity');
-  const ctx = canvas.getContext('2d');
-  const blurPx = parseFloat(document.getElementById('blurSlider').value);
+  const gray = octx.getImageData(0,0,off.width, off.height);
 
   const frac = HALF_WIDTH_MPC / L2_MAX_MPC;
   const cropSize = Math.round(L2_TEXTURE_SIZE * frac);
   const start = Math.round((L2_TEXTURE_SIZE - cropSize)/2);
 
-  // Étape 1 : colorisation + recadrage dans un canvas intermédiaire (non flouté)
-  const tmp = document.createElement('canvas');
-  tmp.width = canvas.width; tmp.height = canvas.height;
-  const tctx = tmp.getContext('2d');
-  const out = tctx.createImageData(canvas.width, canvas.height);
-  for (let y=0;y<canvas.height;y++){
-    for (let x=0;x<canvas.width;x++){
-      const srcX = start + Math.floor(x/canvas.width*cropSize);
-      const srcY = start + Math.floor(y/canvas.height*cropSize);
-      const srcIdx = (srcY*offW+srcX)*4;
-      const v = grayData.data[srcIdx]/255;
-      const [r,g,b] = colorForValue(v);
-      const dstIdx = (y*canvas.width+x)*4;
-      out.data[dstIdx]=r; out.data[dstIdx+1]=g; out.data[dstIdx+2]=b; out.data[dstIdx+3]=255;
+  cropValues = new Float64Array(FFT_N*FFT_N);
+  for (let y=0;y<FFT_N;y++){
+    for (let x=0;x<FFT_N;x++){
+      const srcX = start + Math.floor(x/FFT_N*cropSize);
+      const srcY = start + Math.floor(y/FFT_N*cropSize);
+      cropValues[y*FFT_N+x] = gray.data[(srcY*off.width+srcX)*4]/255;
     }
+  }
+  drawDensity();
+};
+
+function drawDensity() {
+  if (!cropValues) return;
+  const cutoff = parseFloat(document.getElementById('cutoffSlider').value);
+  const filtered = cutoff >= 64 ? cropValues : lowPassFilter(cropValues, FFT_N, cutoff);
+
+  let vmin=Infinity, vmax=-Infinity;
+  for (let i=0;i<filtered.length;i++){ if(filtered[i]<vmin)vmin=filtered[i]; if(filtered[i]>vmax)vmax=filtered[i]; }
+  const span = (vmax-vmin) || 1;
+
+  const tmp = document.createElement('canvas');
+  tmp.width = FFT_N; tmp.height = FFT_N;
+  const tctx = tmp.getContext('2d');
+  const out = tctx.createImageData(FFT_N, FFT_N);
+  for (let i=0;i<filtered.length;i++){
+    const v = (filtered[i]-vmin)/span;
+    const [r,g,b] = colorForValue(v);
+    out.data[i*4]=r; out.data[i*4+1]=g; out.data[i*4+2]=b; out.data[i*4+3]=255;
   }
   tctx.putImageData(out,0,0);
 
-  // Étape 2 : dessin flouté (le filtre canvas s'applique à drawImage, pas à putImageData)
+  const canvas = document.getElementById('canvasDensity');
+  const ctx = canvas.getContext('2d');
+  ctx.imageSmoothingEnabled = true;
   ctx.clearRect(0,0,canvas.width,canvas.height);
-  ctx.filter = blurPx > 0.05 ? `blur(${blurPx}px)` : 'none';
-  ctx.drawImage(tmp, 0, 0);
-  ctx.filter = 'none';
+  ctx.drawImage(tmp, 0, 0, canvas.width, canvas.height);
 
-  document.getElementById('statDensity').textContent = 'Luminosité moyenne : ' + averageBrightness(ctx, canvas.width).toFixed(1) + ' / 255';
+  document.getElementById('statDensity').textContent = 'Moy. ' + averageBrightness(ctx, canvas.width).toFixed(0) + '/255';
 }
 
-// --- Vue 2 : galaxies simulées (points + glow) ---
+// --- Vue points : glow dynamique interpolé selon la position simulée ---
 let catalog = [];
 fetch('data/local_group_catalog.json').then(r=>r.json()).then(data => {
   catalog = data.filter(g => g.distanceMpc <= HALF_WIDTH_MPC * 1.05);
@@ -145,8 +221,11 @@ function drawPoints() {
 
   const scale = size/2/HALF_WIDTH_MPC;
   const originX = size/2, originY = size/2;
-  const glow = parseFloat(document.getElementById('glowSlider').value);
-  const baseRadius = parseFloat(document.getElementById('radiusSlider').value);
+  const baseRadius = parseFloat(document.getElementById('radiusSlider').value) * (size/480);
+  const glowEdge = parseFloat(document.getElementById('glowEdgeSlider').value);
+  const glowCenter = parseFloat(document.getElementById('glowCenterSlider').value);
+  const pos = parseFloat(document.getElementById('posSlider').value); // 0 = bord (10 Mpc), 1 = centre
+  const glow = glowEdge + (glowCenter - glowEdge) * pos;
 
   for (const gal of catalog) {
     const rad = gal.angleDeg * Math.PI/180;
@@ -165,21 +244,22 @@ function drawPoints() {
     ctx.arc(x,y,rPx,0,Math.PI*2);
     ctx.fill();
   }
-  document.getElementById('statPoints').textContent = 'Luminosité moyenne : ' + averageBrightness(ctx, size).toFixed(1) + ' / 255';
+  document.getElementById('statPoints').textContent = 'Moy. ' + averageBrightness(ctx, size).toFixed(0) + '/255';
 }
 
-document.getElementById('blurSlider').addEventListener('input', (e) => {
-  document.getElementById('blurLabel').textContent = e.target.value;
-  drawDensity();
-});
-document.getElementById('glowSlider').addEventListener('input', (e) => {
-  document.getElementById('glowLabel').textContent = parseFloat(e.target.value).toFixed(2);
-  drawPoints();
-});
-document.getElementById('radiusSlider').addEventListener('input', (e) => {
-  document.getElementById('radiusLabel').textContent = e.target.value;
-  drawPoints();
-});
+function bind(id, labelId, digits, onInput) {
+  const el = document.getElementById(id);
+  const label = document.getElementById(labelId);
+  el.addEventListener('input', () => {
+    label.textContent = parseFloat(el.value).toFixed(digits);
+    onInput();
+  });
+}
+bind('cutoffSlider','cutoffVal',0, drawDensity);
+bind('radiusSlider','radiusVal',1, drawPoints);
+bind('glowEdgeSlider','glowEdgeVal',1, drawPoints);
+bind('glowCenterSlider','glowCenterVal',1, drawPoints);
+bind('posSlider','posVal',2, drawPoints);
 </script>
 </body>
 </html>
