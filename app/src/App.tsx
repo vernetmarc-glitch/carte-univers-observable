@@ -54,7 +54,7 @@ export default function App() {
   ].sort((a, b) => b.radius - a.radius) // la plus grande dessinée en premier
 
   return (
-    <div style={{ fontFamily: 'system-ui, sans-serif', color: '#eee', background: '#05050a', minHeight: '100vh', padding: 24 }}>
+    <div style={{ fontFamily: 'system-ui, sans-serif', color: '#eee', background: '#05050a', minHeight: '100vh', padding: '16px 12px', overflowX: 'hidden', boxSizing: 'border-box' }}>
       <h1 style={{ fontSize: 20, fontWeight: 600 }}>Carte de l'univers observable</h1>
 
       <div style={{ display: 'flex', gap: 8, margin: '12px 0 20px' }}>
