@@ -1,38 +1,30 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
+import { densityDilutionFactor, type CosmologyState } from './cosmology'
 
 /**
- * Phase 2 — Grille comobile fixe + zoom.
+ * Phase 2 (grille comobile + zoom) + Phase 3 (temps + effets d'expansion).
  *
- * La carte représente une grille en coordonnées COMOBILES, qui ne bouge
- * jamais : seul le champ de vue (la portion de grille visible) change avec
- * le zoom. C'est la brique de base sur laquelle viendront se greffer :
- *  - la dilution de densité et le cercle d'horizon animés par le temps (Phase 3)
- *  - les layers de matière (Phase 4)
- *  - les 3 sphères cosmologiques en overlay (Phase 5)
+ * Disposition demandée : le zoom est un curseur VERTICAL sur le bord de la
+ * carte ; le temps est un curseur HORIZONTAL sous la carte (à l'emplacement
+ * qu'occupait le zoom auparavant).
  */
 
-// Bornes du zoom, en demi-largeur de champ de vue, en Mpc comobiles.
-// - MIN : échelle locale (Groupe Local, layer 1 du document d'architecture)
-// - MAX : la carte complète (~95 Gal de large, layer 5)
 const MIN_HALF_WIDTH_MPC = 1
 const MAX_HALF_WIDTH_MPC = 14570 // ~95 Gal de côté au total
-
 const GLY_PER_MPC = 3.26156e-3
 
 interface LayerDef {
   name: string
-  minMpc: number
   maxMpc: number
   color: string
 }
 
-// Cf. document d'architecture §4.1 — bornes en échelle comobile.
 const LAYERS: LayerDef[] = [
-  { name: 'Local (Voie lactée, Groupe Local)', minMpc: 0, maxMpc: 3, color: '#7fd1ff' },
-  { name: 'Amas de galaxies', minMpc: 3, maxMpc: 30, color: '#7fffb0' },
-  { name: 'Toile cosmique (filaments, vides)', minMpc: 30, maxMpc: 150, color: '#ffe37f' },
-  { name: "Transition vers l'homogénéité", minMpc: 150, maxMpc: 300, color: '#ffb37f' },
-  { name: 'Univers homogène', minMpc: 300, maxMpc: MAX_HALF_WIDTH_MPC, color: '#ff7f9d' },
+  { name: 'Local (Voie lactée, Groupe Local)', maxMpc: 3, color: '#7fd1ff' },
+  { name: 'Amas de galaxies', maxMpc: 30, color: '#7fffb0' },
+  { name: 'Toile cosmique (filaments, vides)', maxMpc: 150, color: '#ffe37f' },
+  { name: "Transition vers l'homogénéité", maxMpc: 300, color: '#ffb37f' },
+  { name: 'Univers homogène', maxMpc: MAX_HALF_WIDTH_MPC, color: '#ff7f9d' },
 ]
 
 function activeLayer(halfWidthMpc: number): LayerDef {
@@ -47,7 +39,6 @@ function formatDistance(mpc: number): string {
   return `${mpc.toLocaleString('fr-FR', { maximumFractionDigits: 2 })} Mpc`
 }
 
-/** Choisit un pas de grille "rond" (1-2-5 × 10^n) proche de target. */
 function niceGridStep(target: number): number {
   const exp = Math.floor(Math.log10(target))
   const base = target / Math.pow(10, exp)
@@ -55,14 +46,21 @@ function niceGridStep(target: number): number {
   return niceBase * Math.pow(10, exp)
 }
 
-export default function UniverseMap() {
+interface UniverseMapProps {
+  cosmology: CosmologyState
+  tGyr: number
+  tMin: number
+  tMax: number
+  onTimeChange: (t: number) => void
+}
+
+export default function UniverseMap({ cosmology, tGyr, tMin, tMax, onTimeChange }: UniverseMapProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
-  // Zoom stocké en log10(demi-largeur en Mpc) pour un curseur perceptuellement linéaire.
   const [logHalfWidth, setLogHalfWidth] = useState(Math.log10(MAX_HALF_WIDTH_MPC))
   const halfWidthMpc = Math.pow(10, logHalfWidth)
   const layer = activeLayer(halfWidthMpc)
+  const dilution = densityDilutionFactor(cosmology.a)
 
-  // Zoom à la molette / pincement, en plus du curseur.
   useEffect(() => {
     const el = canvasRef.current
     if (!el) return
@@ -78,6 +76,7 @@ export default function UniverseMap() {
   }, [])
 
   const gridStepMpc = useMemo(() => niceGridStep(halfWidthMpc / 4), [halfWidthMpc])
+  const gridStepPhysicalGly = gridStepMpc * cosmology.a * GLY_PER_MPC
 
   useEffect(() => {
     const canvas = canvasRef.current
@@ -85,15 +84,15 @@ export default function UniverseMap() {
     const ctx = canvas.getContext('2d')
     if (!ctx) return
 
-    const size = canvas.width // canvas carré
+    const size = canvas.width
     const pxPerMpc = size / (2 * halfWidthMpc)
     const cx = size / 2
     const cy = size / 2
 
-    ctx.fillStyle = '#05050a'
+    const densityGlow = Math.min(0.10, 0.015 * Math.log10(dilution + 1))
+    ctx.fillStyle = `rgb(${5 + densityGlow * 400}, ${5 + densityGlow * 300}, ${10 + densityGlow * 500})`
     ctx.fillRect(0, 0, size, size)
 
-    // --- Grille carrée (lignes comobiles fixes) ---
     ctx.strokeStyle = 'rgba(255,255,255,0.12)'
     ctx.lineWidth = 1
     const nLines = Math.ceil(halfWidthMpc / gridStepMpc) + 1
@@ -115,7 +114,6 @@ export default function UniverseMap() {
       }
     }
 
-    // --- Anneaux de distance (repères radiaux) ---
     ctx.strokeStyle = 'rgba(255,255,255,0.22)'
     ctx.fillStyle = 'rgba(255,255,255,0.55)'
     ctx.font = '11px monospace'
@@ -129,26 +127,62 @@ export default function UniverseMap() {
       ctx.fillText(formatDistance(rMpc), cx + 4, cy - rPx - 4)
     }
 
-    // --- Position de l'observateur (nous) ---
+    const horizonRPx = cosmology.chiParticleComovingMpc * pxPerMpc
+    ctx.strokeStyle = '#5aa9e6'
+    ctx.lineWidth = 2
+    ctx.beginPath()
+    ctx.arc(cx, cy, horizonRPx, 0, Math.PI * 2)
+    ctx.stroke()
+    if (horizonRPx < size * 0.9) {
+      ctx.fillStyle = '#5aa9e6'
+      ctx.font = 'bold 11px monospace'
+      ctx.fillText('Horizon des particules', cx + 6, cy - horizonRPx + 14)
+    }
+
     ctx.fillStyle = '#ffffff'
     ctx.beginPath()
     ctx.arc(cx, cy, 3, 0, Math.PI * 2)
     ctx.fill()
-  }, [halfWidthMpc, gridStepMpc])
+  }, [halfWidthMpc, gridStepMpc, cosmology, dilution])
 
   return (
-    <div>
-      <canvas
-        ref={canvasRef}
-        width={640}
-        height={640}
-        style={{ width: '100%', maxWidth: 640, aspectRatio: '1/1', borderRadius: 8, touchAction: 'none' }}
-      />
-      <div style={{ marginTop: 12 }}>
-        <label style={{ display: 'block', fontSize: 13, marginBottom: 4 }}>
-          Zoom — demi-champ de vue : <strong>{formatDistance(halfWidthMpc)}</strong>{' '}
-          <span style={{ color: layer.color }}>● {layer.name}</span>
-        </label>
+    <div style={{ display: 'flex', gap: 12, alignItems: 'stretch' }}>
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <canvas
+          ref={canvasRef}
+          width={640}
+          height={640}
+          style={{ width: '100%', maxWidth: 640, aspectRatio: '1/1', borderRadius: 8, touchAction: 'none', display: 'block' }}
+        />
+
+        <div style={{ marginTop: 12, maxWidth: 640 }}>
+          <label style={{ display: 'block', fontSize: 13, marginBottom: 4 }}>
+            Temps — âge de l'univers : <strong>{tGyr.toLocaleString('fr-FR', { maximumFractionDigits: 4 })} Ga</strong>{' '}
+            (z = {cosmology.z.toLocaleString('fr-FR', { maximumFractionDigits: 3 })})
+          </label>
+          <input
+            type="range"
+            min={tMin}
+            max={tMax}
+            step={(tMax - tMin) / 3000}
+            value={tGyr}
+            onChange={(e) => onTimeChange(Number(e.target.value))}
+            style={{ width: '100%' }}
+          />
+          <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11, color: '#777' }}>
+            <span>Recombinaison</span>
+            <span>Aujourd'hui</span>
+          </div>
+          <p style={{ fontSize: 11, color: '#666' }}>
+            1 case de grille ({formatDistance(gridStepMpc)} comobiles) représentait alors une distance physique
+            réelle de <strong>{gridStepPhysicalGly < 0.001 ? (gridStepPhysicalGly * 1e6).toFixed(0) + ' al' : gridStepPhysicalGly.toFixed(4) + ' Gal'}</strong>{' '}
+            — dilution de densité ×{dilution.toLocaleString('fr-FR', { maximumFractionDigits: dilution > 100 ? 0 : 1 })} par rapport à aujourd'hui.
+          </p>
+        </div>
+      </div>
+
+      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', width: 48 }}>
+        <span style={{ fontSize: 10, color: '#999', writingMode: 'vertical-rl', marginBottom: 4 }}>zoom +</span>
         <input
           type="range"
           min={Math.log10(MIN_HALF_WIDTH_MPC)}
@@ -156,17 +190,18 @@ export default function UniverseMap() {
           step={0.002}
           value={logHalfWidth}
           onChange={(e) => setLogHalfWidth(Number(e.target.value))}
-          style={{ width: '100%', maxWidth: 640 }}
+          {...({ orient: 'vertical' } as Record<string, string>)}
+          style={{
+            WebkitAppearance: 'slider-vertical' as any,
+            width: 24,
+            height: 460,
+            flex: 1,
+          }}
         />
-        <div style={{ display: 'flex', justifyContent: 'space-between', maxWidth: 640, fontSize: 11, color: '#777' }}>
-          <span>Local (~{formatDistance(MIN_HALF_WIDTH_MPC)})</span>
-          <span>Univers observable (~{formatDistance(MAX_HALF_WIDTH_MPC)})</span>
+        <span style={{ fontSize: 10, color: '#999', writingMode: 'vertical-rl', marginTop: 4 }}>zoom −</span>
+        <div style={{ fontSize: 10, color: layer.color, textAlign: 'center', marginTop: 8, writingMode: 'vertical-rl' }}>
+          {layer.name}
         </div>
-        <p style={{ fontSize: 11, color: '#666', maxWidth: 640 }}>
-          Molette / pincement pour zoomer directement sur la carte. La grille est fixe en coordonnées
-          comobiles — c'est le champ de vue qui change, pas la grille elle-même (cf. §2 du document
-          d'architecture). Le pas de grille affiché : {formatDistance(gridStepMpc)}.
-        </p>
       </div>
     </div>
   )
