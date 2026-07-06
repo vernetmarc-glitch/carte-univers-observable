@@ -83,6 +83,27 @@ const LAYERS = [
 ];
 let currentLayerIdx = 2; // l3 par défaut (le plus filamenteux)
 
+// Cohérent avec app/src/densityStyle.ts : paramètres calibrés par layer,
+// PAS un unique jeu de valeurs partagé (cf. discussion du 6 juillet — une
+// calibration écrasait la précédente sans stockage par layer).
+const DEFAULT_PARAMS = { gamma: 0.75, soften: 0, sharpen: 0, halo: 0.1, pointIntensity: 0.6, pointThreshold: 82, pointSize: 1.5 };
+const PARAMS_BY_LAYER = {
+  l2: { gamma: 0.85, soften: 0, sharpen: 0, halo: 0.25, pointIntensity: 0.6, pointThreshold: 81.0, pointSize: 2.5 },
+  l4: { gamma: 0.65, soften: 0, sharpen: 0, halo: 0, pointIntensity: 1.0, pointThreshold: 82.5, pointSize: 1.0 },
+};
+function paramsForLayer(key) { return PARAMS_BY_LAYER[key] || DEFAULT_PARAMS; }
+
+function loadParamsIntoSliders(key) {
+  const p = paramsForLayer(key);
+  const map = [['gammaSlider','gammaVal',p.gamma,2],['softSlider','softVal',p.soften,1],['sharpSlider','sharpVal',p.sharpen,2],
+    ['haloSlider','haloVal',p.halo,2],['pointIntSlider','pointIntVal',p.pointIntensity,2],
+    ['pointThreshSlider','pointThreshVal',p.pointThreshold,1],['pointSizeSlider','pointSizeVal',p.pointSize,1]];
+  for (const [sliderId, valId, val, digits] of map) {
+    document.getElementById(sliderId).value = val;
+    document.getElementById(valId).textContent = val.toFixed(digits);
+  }
+}
+
 const ASTRO_STOPS = [
   [0,0,0], [0x17,0x0a,0x05], [0x4a,0x1f,0x0a], [0xa8,0x48,0x0f], [0xe8,0xa1,0x3a], [0xff,0xf3,0xd6]
 ];
@@ -297,6 +318,7 @@ function buildLayerButtons() {
     btn.onclick = () => {
       currentLayerIdx = i;
       buildLayerButtons();
+      loadParamsIntoSliders(LAYERS[i].key);
       loadLayer(i, reprocessCurrentLayer);
     };
     row.appendChild(btn);
@@ -326,6 +348,7 @@ document.getElementById('gearBtn').addEventListener('click', () => {
 window.addEventListener('resize', draw);
 
 buildLayerButtons();
+loadParamsIntoSliders(LAYERS[currentLayerIdx].key);
 loadLayer(currentLayerIdx, reprocessCurrentLayer);
 </script>
 </body>
