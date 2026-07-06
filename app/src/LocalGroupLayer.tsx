@@ -5,23 +5,6 @@ import { onGalaxyReady, type GalaxyStar, type GalaxyModelApi } from './galaxyMod
 
 const LY_PER_MPC = 3.26156e6
 
-/**
- * Catalogue des galaxies du Groupe Local (réelles + population procédurale
- * complémentaire), chargé depuis un JSON généré par
- * scripts/generate_local_group_catalog.py — SOURCE UNIQUE, partagée avec
- * l'ancrage structuré du champ L2 (generate_layers.py). Ne jamais dupliquer
- * ces listes ici : toute évolution doit passer par le script Python et être
- * régénérée des deux côtés (texture L2 + ce catalogue).
- */
-interface CatalogGalaxy {
-  name: string | null
-  distanceMpc: number
-  radiusMpc: number
-  angleDeg: number
-  brightness: number
-  isReal: boolean
-}
-
 interface LocalGroupLayerProps {
   halfWidthMpc: number
   opacity: number
@@ -33,9 +16,7 @@ export default function LocalGroupLayer({ halfWidthMpc, opacity, style }: LocalG
   const rafRef = useRef<number | null>(null)
   const starsRef = useRef<GalaxyStar[] | null>(null)
   const gmRef = useRef<GalaxyModelApi | null>(null)
-  const catalogRef = useRef<CatalogGalaxy[] | null>(null)
   const [starsReady, setStarsReady] = useState(false)
-  const [catalogReady, setCatalogReady] = useState(false)
 
   useEffect(() => {
     return onGalaxyReady((stars, gm) => {
@@ -43,15 +24,6 @@ export default function LocalGroupLayer({ halfWidthMpc, opacity, style }: LocalG
       gmRef.current = gm
       setStarsReady(true)
     })
-  }, [])
-
-  useEffect(() => {
-    fetch(`${import.meta.env.BASE_URL}data/local_group_catalog.json`)
-      .then((res) => res.json())
-      .then((catalog: CatalogGalaxy[]) => {
-        catalogRef.current = catalog
-        setCatalogReady(true)
-      })
   }, [])
 
   const weight = getLayerWeights(halfWidthMpc).localgroup
@@ -96,30 +68,16 @@ export default function LocalGroupLayer({ halfWidthMpc, opacity, style }: LocalG
         ctx.globalAlpha = 1
       }
 
-      // --- Étiquettes des galaxies réelles du catalogue (peu coûteux : juste
-      // du texte, positionné par trigonométrie). Le halo/point de chaque
-      // galaxie est désormais une texture statique (cf. DensityLayer +
-      // scripts/generate_local_group_texture.py) — plus de calcul de champ
-      // de densité ici à chaque frame. ---
-      const catalog = catalogRef.current
-      if (catalog) {
-        for (const gal of catalog) {
-          if (!gal.isReal || !gal.name || halfWidthMpc >= 1.5) continue
-          const rad = (gal.angleDeg * Math.PI) / 180
-          const x = originX + Math.cos(rad) * gal.distanceMpc * scale
-          const y = originY + Math.sin(rad) * gal.distanceMpc * scale
-          if (x < -20 || x > size + 20 || y < -20 || y > size + 20) continue
-          ctx.fillStyle = 'rgba(255,255,255,0.75)'
-          ctx.font = '10px monospace'
-          ctx.fillText(gal.name, x + 8, y + 3)
-        }
-      }
+      // --- Étiquettes des galaxies désactivées temporairement (perf) : elles
+      // n'apportaient pas beaucoup et contribuaient au saccadé pendant le
+      // zoom. Le halo/point de chaque galaxie reste affiché via la texture
+      // statique (cf. DensityLayer + scripts/generate_local_group_texture.py). ---
     })
 
     return () => {
       if (rafRef.current !== null) cancelAnimationFrame(rafRef.current)
     }
-  }, [halfWidthMpc, weight, style, starsReady, catalogReady])
+  }, [halfWidthMpc, weight, style, starsReady])
 
   return (
     <canvas
