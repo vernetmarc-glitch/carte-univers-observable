@@ -149,7 +149,21 @@ export default function UniverseMap({ cosmology, tGyr, tMin, tMax, onTimeChange 
       ctx.fillText('Horizon des particules', cx + 6, cy - horizonRPx + 14)
     }
 
-    ctx.fillStyle = '#ffffff'
+    // Le marqueur de position s'estompe aux grandes échelles : montrer un point
+    // "nous" bien visible n'a plus de sens à l'échelle de l'univers homogène.
+    const markerFadeStart = 300 // Mpc — début de l'estompage (frontière L4/L4b)
+    const markerFadeEnd = 14570 // Mpc — quasi invisible à l'échelle max
+    const markerT = Math.min(
+      Math.max(
+        (Math.log10(halfWidthMpc) - Math.log10(markerFadeStart)) /
+          (Math.log10(markerFadeEnd) - Math.log10(markerFadeStart)),
+        0
+      ),
+      1
+    )
+    const markerAlpha = 1 - markerT * 0.92 // ne descend jamais à 0 complet, juste très discret
+
+    ctx.fillStyle = `rgba(255,255,255,${markerAlpha})`
     ctx.beginPath()
     ctx.arc(cx, cy, 3, 0, Math.PI * 2)
     ctx.fill()
