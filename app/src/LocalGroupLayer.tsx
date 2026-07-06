@@ -2,9 +2,6 @@ import { useEffect, useRef, useState } from 'react'
 import { getLayerWeights } from './layerWeights'
 import { colorForValue, type DensityStyle } from './colormaps'
 import { onGalaxyReady, type GalaxyStar, type GalaxyModelApi } from './galaxyModelLoader'
-import { computeKdeField, colorizeKdeField, kdeReferenceMax } from './kdeRender'
-
-const KDE_GRID_N = 256
 
 const LY_PER_MPC = 3.26156e6
 
@@ -99,21 +96,13 @@ export default function LocalGroupLayer({ halfWidthMpc, opacity, style }: LocalG
         ctx.globalAlpha = 1
       }
 
-      // --- Galaxies du catalogue (réelles + procédurales), rendu KDE
-      // (halo + point central), formule calibrée via glow-test.html ---
+      // --- Étiquettes des galaxies réelles du catalogue (peu coûteux : juste
+      // du texte, positionné par trigonométrie). Le halo/point de chaque
+      // galaxie est désormais une texture statique (cf. DensityLayer +
+      // scripts/generate_local_group_texture.py) — plus de calcul de champ
+      // de densité ici à chaque frame. ---
       const catalog = catalogRef.current
       if (catalog) {
-        const field = computeKdeField(catalog, halfWidthMpc, KDE_GRID_N)
-        const vmax = kdeReferenceMax()
-        const imageData = colorizeKdeField(field, KDE_GRID_N, style, vmax)
-
-        const kdeCanvas = document.createElement('canvas')
-        kdeCanvas.width = KDE_GRID_N
-        kdeCanvas.height = KDE_GRID_N
-        kdeCanvas.getContext('2d')!.putImageData(imageData, 0, 0)
-        ctx.drawImage(kdeCanvas, 0, 0, size, size)
-
-        // Étiquettes des galaxies réelles (calculées séparément, indépendantes de la grille KDE)
         for (const gal of catalog) {
           if (!gal.isReal || !gal.name || halfWidthMpc >= 1.5) continue
           const rad = (gal.angleDeg * Math.PI) / 180
