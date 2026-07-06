@@ -49,6 +49,7 @@ interface DensityLayerProps {
   halfWidthMpc: number
   width: number
   height: number
+  onLoadProgress?: (loaded: number, total: number) => void
 }
 
 /**
@@ -60,16 +61,24 @@ interface DensityLayerProps {
  * fonction du zoom courant. Le recadrage est RECTANGULAIRE (proportionnel à
  * width/height) pour remplir tout l'écran sans déformation, en coordonnées
  * flottantes (pas d'arrondi pixel) pour éviter tout jitter au zoom.
+ *
+ * Chargement PROGRESSIF et PRIORISÉ : le layer correspondant au zoom initial
+ * est demandé en premier, et chaque texture est traitée/affichée dès son
+ * arrivée (pas d'attente des 11 avant le premier rendu) — évite l'attente
+ * initiale très longue observée avant cette version.
  */
-export default function DensityLayer({ style, opacity, halfWidthMpc, width, height }: DensityLayerProps) {
+export default function DensityLayer({ style, opacity, halfWidthMpc, width, height, onLoadProgress }: DensityLayerProps) {
   const outputCanvasRef = useRef<HTMLCanvasElement>(null)
   const grayDataRef = useRef<Record<string, ImageData>>({})
   const colorizedRef = useRef<Record<string, HTMLCanvasElement>>({})
   const loadedCountRef = useRef(0)
 
-  // Chargement unique des textures sources en niveaux de gris.
+  // Chargement des textures sources, PRIORISÉ sur le layer du zoom initial.
   useEffect(() => {
-    PROCEDURAL_LAYERS.forEach((layer) => {
+    const ordered = [...PROCEDURAL_LAYERS].sort(
+      (a, b) => Math.abs(Math.log(halfWidthMpc / a.maxMpc)) - Math.abs(Math.log(halfWidthMpc / b.maxMpc))
+    )
+    ordered.forEach((layer) => {
       const img = new Image()
       img.src = `${import.meta.env.BASE_URL}data/density_${layer.key}.png`
       img.onload = () => {
@@ -80,38 +89,39 @@ export default function DensityLayer({ style, opacity, halfWidthMpc, width, heig
         if (!octx) return
         octx.drawImage(img, 0, 0)
         grayDataRef.current[layer.key] = octx.getImageData(0, 0, off.width, off.height)
+        recolorLayer(layer.key)
+        draw()
         loadedCountRef.current += 1
-        if (loadedCountRef.current === PROCEDURAL_LAYERS.length) {
-          recolorAll()
-          draw()
-        }
+        onLoadProgress?.(loadedCountRef.current, PROCEDURAL_LAYERS.length)
       }
     })
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
+  function recolorLayer(key: string) {
+    const gray = grayDataRef.current[key]
+    if (!gray) return
+
+    // Traitement à la résolution NATIVE de la texture (pas de sous-
+    // échantillonnage) : le recadrage se fait ensuite sur ce résultat, donc
+    // toute perte de résolution ici se répercute directement sur le piqué
+    // final à l'écran, en particulier aux niveaux de zoom qui n'utilisent
+    // qu'une petite portion de la texture (agrandissement important).
+    const n = gray.width
+    const grayValues = new Float32Array(n * n)
+    for (let i = 0; i < grayValues.length; i++) grayValues[i] = gray.data[i * 4] / 255
+
+    const processed = processDensityField(grayValues, n, style, getStyleParamsForLayer(key))
+
+    const canvas = document.createElement('canvas')
+    canvas.width = n
+    canvas.height = n
+    canvas.getContext('2d')!.putImageData(processed, 0, 0)
+    colorizedRef.current[key] = canvas
+  }
+
   function recolorAll() {
-    PROCEDURAL_LAYERS.forEach((layer) => {
-      const gray = grayDataRef.current[layer.key]
-      if (!gray) return
-
-      // Traitement à la résolution NATIVE de la texture (pas de sous-
-      // échantillonnage) : le recadrage se fait ensuite sur ce résultat, donc
-      // toute perte de résolution ici se répercute directement sur le piqué
-      // final à l'écran, en particulier aux niveaux de zoom qui n'utilisent
-      // qu'une petite portion de la texture (agrandissement important).
-      const n = gray.width
-      const grayValues = new Float32Array(n * n)
-      for (let i = 0; i < grayValues.length; i++) grayValues[i] = gray.data[i * 4] / 255
-
-      const processed = processDensityField(grayValues, n, style, getStyleParamsForLayer(layer.key))
-
-      const canvas = document.createElement('canvas')
-      canvas.width = n
-      canvas.height = n
-      canvas.getContext('2d')!.putImageData(processed, 0, 0)
-      colorizedRef.current[layer.key] = canvas
-    })
+    PROCEDURAL_LAYERS.forEach((layer) => recolorLayer(layer.key))
   }
 
   function draw() {
@@ -182,18 +192,14 @@ export default function DensityLayer({ style, opacity, halfWidthMpc, width, heig
 
   // Recoloration complète quand le style change.
   useEffect(() => {
-    if (loadedCountRef.current === PROCEDURAL_LAYERS.length) {
-      recolorAll()
-      draw()
-    }
+    recolorAll()
+    draw()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [style])
 
   // Redessin (recadrage/fondu) quand le zoom ou la taille de l'écran changent.
   useEffect(() => {
-    if (loadedCountRef.current === PROCEDURAL_LAYERS.length) {
-      draw()
-    }
+    draw()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [halfWidthMpc, width, height])
 
