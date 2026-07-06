@@ -5,6 +5,13 @@ import { processDensityField } from './densityStyle'
 
 const STYLE_WORKING_RES = 256 // résolution utilisée lors de la calibration (glow-test.html)
 
+// Marge de génération des textures (cf. scripts/generate_layers.py et
+// generate_local_group_texture.py) : chaque texture couvre en réalité
+// layer.maxMpc * MARGIN_FACTOR de demi-largeur physique, pas seulement
+// layer.maxMpc — nécessaire pour le futur recadrage rectangulaire (portrait/
+// paysage) sans letterboxing. Garder cette valeur synchronisée avec le Python.
+const MARGIN_FACTOR = 1.5
+
 interface ProceduralLayer {
   key: 'localgroup' | 'l2' | 'l3' | 'l4' | 'l4b' | 'l5'
   maxMpc: number
@@ -120,7 +127,7 @@ export default function DensityLayer({ style, opacity, halfWidthMpc }: DensityLa
       if (!source) continue
 
       const n = source.width
-      const frac = Math.min(halfWidthMpc / layer.maxMpc, 1)
+      const frac = Math.min(halfWidthMpc / (layer.maxMpc * MARGIN_FACTOR), 1)
       const cropSize = Math.max(Math.round(n * frac), 2)
       const start = Math.round((n - cropSize) / 2)
 
