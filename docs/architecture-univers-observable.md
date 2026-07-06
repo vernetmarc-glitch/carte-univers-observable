@@ -4,6 +4,42 @@ Version 1.0 — Juillet 2026
 
 ---
 
+## 0. État actuel du projet — résumé pour reprise de contexte
+
+*(Section mise à jour le 6 juillet 2026, pensée pour permettre à Claude de reprendre ce projet dans une nouvelle conversation sans relire tout l'historique.)*
+
+**Dépôt et déploiement**
+- Dépôt : `vernetmarc-glitch/lheure-de-senivrer` (renommé depuis `carte-univers-observable`)
+- Site en ligne : https://vernetmarc-glitch.github.io/lheure-de-senivrer/
+- Outil de calibration de style : https://vernetmarc-glitch.github.io/lheure-de-senivrer/glow-test.html
+- Déploiement automatique via GitHub Actions (`.github/workflows/deploy.yml`) sur push vers `main`
+- Projet installable en PWA (`manifest.json`, icônes générées depuis le logo fourni), nom affiché "L'Heure de s'enivrer"
+
+**Architecture de rendu actuelle**
+- App plein écran (pas d'onglets, pas de légendes texte) : titre en haut à gauche, bouton réglages (⚙) en haut à droite (style + présence du fond), curseur de zoom vertical à droite, curseur de temps horizontal en bas — tous en overlay sur la carte, avec `env(safe-area-inset-*)`.
+- Zone de rendu clampée à un ratio max de 2,4:1 (bandes noires fixes au-delà) pour éviter qu'un layer ne "disparaisse" sur écrans très larges/étroits.
+- Canvas dimensionnés selon `devicePixelRatio` (plafonné à 3) pour la netteté sur écrans Retina.
+- Chargement des textures progressif et priorisé (le layer du zoom courant en premier, affichage dès l'arrivée de chaque texture), avec indicateur discret en bas à droite.
+
+**Les layers (du plus proche au plus lointain)**
+1. `milkyway` : rendu en direct (étoiles individuelles) via le modèle `GalaxyModel` **partagé** (CDN jsDelivr depuis le dépôt `le-silence-du-cosmos`, **ne jamais dupliquer/modifier localement** — toute évolution doit être poussée sur ce repo). Bord du disque à fondu progressif (pas de coupure nette).
+2. `localgroup` : texture statique pour les galaxies **procédurales** (halo dépendant de la distance) + rendu en **points individuels** pour les galaxies **réelles** (Andromède, M33, Nuages de Magellan, Naine du Sagittaire, NGC 6822, IC 10, Leo I), chacune avec sa propre morphologie (spirale, spirale barrée, irrégulière avec aile tidale, elliptique étirée...) — cf. `nearbyGalaxyStars.ts`. Les galaxies réelles restent visibles à la fois sur ce layer ET sur le layer `milkyway` (catalogue partagé via `useRealGalaxyCatalog.ts`).
+3. `l1b` → `l5` : **10 layers procéduraux** de densité (doublé depuis 5 initialement) : l1b, l2, l2b, l3, l3b, l4, l4a, l4b, l5a, l5. Les paliers "a"/"b" sont des paliers **techniques** (pas de nouveaux layers scientifiques). Chaque palier hérite directement de son plus proche **ancêtre scientifique** (pas du palier précédent en cascade) pour éviter la dilution de structure à grande échelle — poids de combinaison 0,74 (hérité) / 0,67 (détail neuf).
+
+**Fichiers de génération (Python, dans `/scripts`)**
+- `generate_layers.py` : génère les 10 textures procédurales (résolution 1024, marge de génération ×1,5 — ×2,4 pour L5 spécifiquement, seul layer visible pile à son bord extrême)
+- `generate_local_group_texture.py` : texture des galaxies procédurales du Groupe Local
+- `generate_local_group_catalog.py` : catalogue JSON (98 galaxies, réelles + procédurales)
+- `local_group_style.py` : **source unique** des constantes de rendu des galaxies réelles (taille de halo, suppression de bruit local...) — ne jamais redéfinir ailleurs
+
+**Point de vigilance connu — synchronisation manuelle requise**
+`app/public/glow-test.html` est un fichier HTML autonome (pas de build partagé) qui **duplique manuellement** la liste des layers et leurs marges. Toute évolution de la liste de layers côté production (`DensityLayer.tsx`) doit être répercutée à la main dans cet outil, sinon il se désynchronise silencieusement (déjà arrivé une fois).
+
+**Chantier en attente, déjà cadré (cf. §9 ci-dessous)**
+Implémenter la distension spatiale réelle en fonction du temps (a(t)) : actuellement la carte est en coordonnées comobiles fixes (rien ne bouge avec le temps, seule la luminosité change). Le principe retenu et la formule sont déjà documentés en détail au §9 — reste à l'implémenter. Une question adjacente (mise de côté pour l'instant) : la croissance des structures (formation hiérarchique bottom-up) n'est pas non plus implémentée.
+
+---
+
 ## 1. Vision du projet
 
 Application web dynamique représentant l'univers observable en coupe 2D ("vu du dessus"), pilotée par deux axes de navigation indépendants :
