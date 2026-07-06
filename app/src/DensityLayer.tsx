@@ -144,21 +144,33 @@ export default function DensityLayer({ style, opacity, halfWidthMpc, width, heig
       // visible aux niveaux de zoom où le recadrage source est petit.
       let cropW = 2 * halfWidthMpcX * texturePxPerMpc
       let cropH = 2 * halfWidthMpcY * texturePxPerMpc
-      // Si l'un des deux axes dépasse la texture, on réduit LES DEUX du même
-      // facteur (pas chacun indépendamment) pour ne jamais déformer le ratio
-      // largeur/hauteur de l'écran — un clamp indépendant par axe provoquait
-      // une compression latérale visible juste aux frontières de zoom.
-      const maxDim = Math.max(cropW, cropH)
-      if (maxDim > n) {
-        const clampScale = n / maxDim
-        cropW *= clampScale
-        cropH *= clampScale
+
+      // Si le recadrage dépasserait la texture source (au-delà de la marge de
+      // génération), on réduit LE RECTANGLE DE DESTINATION à l'écran plutôt
+      // que le recadrage lui-même — sinon le facteur de compensation annule
+      // exactement l'effet du zoom et l'image se fige (le layer arrête de
+      // zoomer) tant que le clamp reste actif. En réduisant la destination,
+      // le contenu continue de zoomer normalement sur une zone un peu plus
+      // petite que l'écran ; le layer plus grossier (déjà visible en fondu à
+      // ce moment) comble naturellement les bords.
+      let destX = 0
+      let destY = 0
+      let destW = W
+      let destH = H
+      const overshoot = Math.max(cropW / n, cropH / n, 1)
+      if (overshoot > 1) {
+        cropW /= overshoot
+        cropH /= overshoot
+        destW = W / overshoot
+        destH = H / overshoot
+        destX = (W - destW) / 2
+        destY = (H - destH) / 2
       }
       const startX = (n - cropW) / 2
       const startY = (n - cropH) / 2
 
       ctx.globalAlpha = w
-      ctx.drawImage(source, startX, startY, cropW, cropH, 0, 0, W, H)
+      ctx.drawImage(source, startX, startY, cropW, cropH, destX, destY, destW, destH)
     }
     ctx.globalAlpha = 1
   }
