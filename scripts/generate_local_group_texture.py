@@ -16,7 +16,7 @@ import numpy as np
 from PIL import Image
 from generate_local_group_catalog import build_catalog
 
-N = 512
+N = 768  # 512 * 1.5 (MARGIN_FACTOR) : compense exactement la marge, garde le meme piqué de halo qu'avant
 MAX_MPC = 2.4  # cf. layerWeights.ts : frontiere Groupe Local / L2 (frontiere LOGIQUE)
 MARGIN_FACTOR = 1.5  # cf. generate_layers.py : meme marge, pour recadrage rectangulaire
 
