@@ -76,16 +76,26 @@
 <script>
 const DPR = Math.min(window.devicePixelRatio || 1, 3);
 const MARGIN_FACTOR = 1.5;
+// L5 a une marge dédiée plus large (cf. app/src/DensityLayer.tsx et
+// scripts/generate_layers.py) : c'est le seul layer visible pile à son bord
+// extrême, sujet au letterboxing sur écrans très allongés sans cette marge.
+const MARGIN_FACTOR_L5 = 2.4;
+function marginFor(key) { return key === 'l5' ? MARGIN_FACTOR_L5 : MARGIN_FACTOR; }
 
 const LAYERS = [
   { key: 'localgroup', maxMpc: 2.4 },
+  { key: 'l1b', maxMpc: 8.49 },
   { key: 'l2', maxMpc: 30 },
+  { key: 'l2b', maxMpc: 67.08 },
   { key: 'l3', maxMpc: 150 },
+  { key: 'l3b', maxMpc: 212.13 },
   { key: 'l4', maxMpc: 300 },
+  { key: 'l4a', maxMpc: 793.73 },
   { key: 'l4b', maxMpc: 2100 },
+  { key: 'l5a', maxMpc: 5531.46 },
   { key: 'l5', maxMpc: 14570 },
 ];
-let currentLayerIdx = 2; // l3 par défaut (le plus filamenteux)
+let currentLayerIdx = 4; // l3 par défaut (le plus filamenteux)
 
 // Cohérent avec app/src/densityStyle.ts : paramètres calibrés par layer,
 // PAS un unique jeu de valeurs partagé (cf. discussion du 6 juillet — une
@@ -294,7 +304,7 @@ function draw() {
   document.getElementById('zoomVal').textContent = halfWidthMpc.toFixed(3) + ' Mpc';
 
   const n = source.width;
-  const texturePxPerMpc = n / (2 * layer.maxMpc * MARGIN_FACTOR);
+  const texturePxPerMpc = n / (2 * layer.maxMpc * marginFor(layer.key));
   const shortSide = Math.min(W, H);
   const halfWidthMpcX = (W/shortSide) * halfWidthMpc;
   const halfWidthMpcY = (H/shortSide) * halfWidthMpc;
