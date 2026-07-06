@@ -118,15 +118,23 @@ def export_layer_png(log_density, vmin, vmax, path):
 
 def build_structured_anchor_field(catalog, max_mpc, n):
     """Construit un champ 2D avec, pour chaque galaxie du catalogue, un halo
-    gaussien large + un point central compact — formule calibrée
-    visuellement via app/public/glow-test.html (voir aussi
-    app/src/kdeRender.ts, source de vérité JS de la même formule).
-    Ne pas modifier ces constantes sans repasser par cet outil.
+    gaussien large + un point central compact.
+
+    Attention : ces constantes sont volontairement DIFFÉRENTES (bien plus
+    faibles) que celles du rendu KDE en direct (app/src/kdeRender.ts). Les
+    deux pipelines de normalisation ne sont pas les mêmes : le rendu JS
+    normalise dynamiquement par frame, alors que L2 est normalisé une fois
+    pour toutes par percentiles partagés entre tous les layers (cf. main()).
+    Réutiliser les mêmes valeurs qu'en JS sature une grande zone ici (halos
+    proches superposés) car cette normalisation-ci les laisse s'accumuler.
+    Le rôle de cet ancrage est mineur (continuité de second ordre, la
+    transition principale est gérée par le fondu de poids avec le layer
+    Groupe Local) — pas besoin de reproduire l'intensité exacte du direct.
     """
-    SIZE_MPC = 0.59       # sigma du halo
-    AMPLITUDE = 3.5       # contraste de brillance
-    HALO_SCALE = 0.85     # luminosite du halo
-    CORE_SCALE = 2.5      # luminosite du point central
+    SIZE_MPC = 0.59
+    AMPLITUDE = 3.5
+    HALO_SCALE = 0.12     # tres reduit par rapport au rendu JS (0.85) : evite la saturation
+    CORE_SCALE = 0.35     # idem (JS: 2.5)
 
     pixel_size_mpc = (2 * max_mpc) / n
     core_sigma_mpc = pixel_size_mpc * 1.3
