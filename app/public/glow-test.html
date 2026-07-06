@@ -39,28 +39,28 @@
     <input type="range" id="zoomSlider" min="0" max="1" step="0.001" value="0.5" />
   </div>
   <div class="ctrl">
-    <label>Contraste (gamma) <span class="val" id="gammaVal">1.00</span></label>
-    <input type="range" id="gammaSlider" min="0.4" max="2.5" step="0.05" value="1.0" />
+    <label>Contraste (gamma) <span class="val" id="gammaVal">0.65</span></label>
+    <input type="range" id="gammaSlider" min="0.4" max="2.5" step="0.05" value="0.65" />
   </div>
   <div class="ctrl">
     <label>Adoucissement (vapeur) <span class="val" id="softVal">0.0</span></label>
     <input type="range" id="softSlider" min="0" max="8" step="0.2" value="0" />
   </div>
   <div class="ctrl">
-    <label>Netteté filaments <span class="val" id="sharpVal">0.15</span></label>
-    <input type="range" id="sharpSlider" min="0" max="3" step="0.05" value="0.15" />
+    <label>Netteté filaments <span class="val" id="sharpVal">0.00</span></label>
+    <input type="range" id="sharpSlider" min="0" max="3" step="0.05" value="0" />
   </div>
   <div class="ctrl">
     <label>Halo (bloom) <span class="val" id="haloVal">0.00</span></label>
     <input type="range" id="haloSlider" min="0" max="2" step="0.05" value="0" />
   </div>
   <div class="ctrl">
-    <label>Points (intensité) <span class="val" id="pointIntVal">0.25</span></label>
-    <input type="range" id="pointIntSlider" min="0" max="3" step="0.05" value="0.25" />
+    <label>Points (intensité) <span class="val" id="pointIntVal">1.00</span></label>
+    <input type="range" id="pointIntSlider" min="0" max="3" step="0.05" value="1.0" />
   </div>
   <div class="ctrl">
-    <label>Points (seuil) <span class="val" id="pointThreshVal">81.5</span></label>
-    <input type="range" id="pointThreshSlider" min="80" max="99.5" step="0.5" value="81.5" />
+    <label>Points (seuil) <span class="val" id="pointThreshVal">82.5</span></label>
+    <input type="range" id="pointThreshSlider" min="80" max="99.5" step="0.5" value="82.5" />
   </div>
   <div class="ctrl">
     <label>Points (taille) <span class="val" id="pointSizeVal">1.0</span></label>
@@ -72,7 +72,6 @@
 <script>
 const DPR = Math.min(window.devicePixelRatio || 1, 3);
 const MARGIN_FACTOR = 1.5;
-const STYLE_WORKING_RES = 512;
 
 const LAYERS = [
   { key: 'localgroup', maxMpc: 2.4 },
@@ -223,12 +222,13 @@ function loadLayer(idx, onDone) {
   const img = new Image();
   img.src = `data/density_${key}.png`;
   img.onload = () => {
+    const n = img.naturalWidth;
     const off = document.createElement('canvas');
-    off.width = STYLE_WORKING_RES; off.height = STYLE_WORKING_RES;
+    off.width = n; off.height = n;
     const octx = off.getContext('2d');
-    octx.drawImage(img, 0, 0, STYLE_WORKING_RES, STYLE_WORKING_RES);
-    const gray = octx.getImageData(0,0,STYLE_WORKING_RES,STYLE_WORKING_RES);
-    const values = new Float32Array(STYLE_WORKING_RES*STYLE_WORKING_RES);
+    octx.drawImage(img, 0, 0);
+    const gray = octx.getImageData(0,0,n,n);
+    const values = new Float32Array(n*n);
     for (let i=0;i<values.length;i++) values[i] = gray.data[i*4]/255;
     grayCache[key] = values;
     onDone();
@@ -239,7 +239,8 @@ function reprocessCurrentLayer() {
   const key = LAYERS[currentLayerIdx].key;
   const gray = grayCache[key];
   if (!gray) return;
-  processedCache[key] = processDensityField(gray, STYLE_WORKING_RES, getParams());
+  const n = Math.round(Math.sqrt(gray.length));
+  processedCache[key] = processDensityField(gray, n, getParams());
   draw();
 }
 
