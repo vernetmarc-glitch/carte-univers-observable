@@ -2,6 +2,9 @@ import { useEffect, useRef, useState } from 'react'
 import { getLayerWeights } from './layerWeights'
 import { colorForValue, type DensityStyle } from './colormaps'
 import { onGalaxyReady, type GalaxyStar, type GalaxyModelApi } from './galaxyModelLoader'
+import { computeKdeField, colorizeKdeField, kdeReferenceMax } from './kdeRender'
+
+const KDE_GRID_N = 256
 
 const LY_PER_MPC = 3.26156e6
 
@@ -96,30 +99,30 @@ export default function LocalGroupLayer({ halfWidthMpc, opacity, style }: LocalG
         ctx.globalAlpha = 1
       }
 
-      // --- Galaxies du catalogue (réelles + procédurales) ---
+      // --- Galaxies du catalogue (réelles + procédurales), rendu KDE
+      // (halo + point central), formule calibrée via glow-test.html ---
       const catalog = catalogRef.current
       if (catalog) {
+        const field = computeKdeField(catalog, halfWidthMpc, KDE_GRID_N)
+        const vmax = kdeReferenceMax()
+        const imageData = colorizeKdeField(field, KDE_GRID_N, style, vmax)
+
+        const kdeCanvas = document.createElement('canvas')
+        kdeCanvas.width = KDE_GRID_N
+        kdeCanvas.height = KDE_GRID_N
+        kdeCanvas.getContext('2d')!.putImageData(imageData, 0, 0)
+        ctx.drawImage(kdeCanvas, 0, 0, size, size)
+
+        // Étiquettes des galaxies réelles (calculées séparément, indépendantes de la grille KDE)
         for (const gal of catalog) {
+          if (!gal.isReal || !gal.name || halfWidthMpc >= 1.5) continue
           const rad = (gal.angleDeg * Math.PI) / 180
           const x = originX + Math.cos(rad) * gal.distanceMpc * scale
           const y = originY + Math.sin(rad) * gal.distanceMpc * scale
-          const rPx = Math.max(gal.radiusMpc * scale, gal.isReal ? 5 : 3)
-          if (x < -rPx || x > size + rPx || y < -rPx || y > size + rPx) continue
-
-          const [cr, cg, cb] = colorForValue(gal.brightness, style)
-          const gradient = ctx.createRadialGradient(x, y, 0, x, y, rPx)
-          gradient.addColorStop(0, `rgba(${cr},${cg},${cb},0.95)`)
-          gradient.addColorStop(1, `rgba(${cr},${cg},${cb},0)`)
-          ctx.fillStyle = gradient
-          ctx.beginPath()
-          ctx.arc(x, y, rPx, 0, Math.PI * 2)
-          ctx.fill()
-
-          if (gal.isReal && gal.name && rPx > 4 && halfWidthMpc < 1.5) {
-            ctx.fillStyle = 'rgba(255,255,255,0.75)'
-            ctx.font = '10px monospace'
-            ctx.fillText(gal.name, x + rPx + 3, y + 3)
-          }
+          if (x < -20 || x > size + 20 || y < -20 || y > size + 20) continue
+          ctx.fillStyle = 'rgba(255,255,255,0.75)'
+          ctx.font = '10px monospace'
+          ctx.fillText(gal.name, x + 8, y + 3)
         }
       }
     })
