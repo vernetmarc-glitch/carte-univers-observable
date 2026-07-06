@@ -56,6 +56,7 @@ interface UniverseMapProps {
 
 export default function UniverseMap({ cosmology, tGyr, tMin, tMax, onTimeChange }: UniverseMapProps) {
   const [containerRef, { width, height }] = useElementSize<HTMLDivElement>()
+  const [zoomSliderRef, zoomSliderSize] = useElementSize<HTMLDivElement>()
   const gridCanvasRef = useRef<HTMLCanvasElement>(null)
   const [logHalfWidth, setLogHalfWidth] = useState(Math.log10(MAX_HALF_WIDTH_MPC))
   const [densityStyle, setDensityStyle] = useState<DensityStyle>('astro')
@@ -280,38 +281,43 @@ export default function UniverseMap({ cosmology, tGyr, tMin, tMax, onTimeChange 
         </div>
       )}
 
-      {/* Curseur de zoom, vertical, sur le bord droit */}
+      {/* Curseur de zoom, vertical, sur le bord droit — s'étire sur toute la hauteur disponible */}
       <div
+        ref={zoomSliderRef}
         style={{
           position: 'absolute',
-          top: '50%',
+          top: 'calc(max(14px, env(safe-area-inset-top)) + 50px)',
+          bottom: 'calc(max(14px, env(safe-area-inset-bottom)) + 56px)',
           right: 'max(6px, env(safe-area-inset-right))',
-          transform: 'translateY(-50%)',
           width: 40,
-          height: '55dvh',
-          maxHeight: 460,
           touchAction: 'none',
         }}
       >
-        <input
-          type="range"
-          min={Math.log10(MIN_HALF_WIDTH_MPC)}
-          max={Math.log10(MAX_HALF_WIDTH_MPC)}
-          step={0.002}
-          value={logHalfWidth}
-          onChange={(e) => setLogHalfWidth(Number(e.target.value))}
-          style={{
-            position: 'absolute',
-            width: '100%',
-            height: 32,
-            top: '50%',
-            left: '50%',
-            transform: 'translate(-50%, -50%) rotate(90deg)',
-            transformOrigin: 'center',
-            margin: 0,
-            touchAction: 'none',
-          }}
-        />
+        {zoomSliderSize.height > 0 && (
+          <input
+            type="range"
+            min={Math.log10(MIN_HALF_WIDTH_MPC)}
+            max={Math.log10(MAX_HALF_WIDTH_MPC)}
+            step={0.002}
+            value={logHalfWidth}
+            onChange={(e) => setLogHalfWidth(Number(e.target.value))}
+            style={{
+              position: 'absolute',
+              // L'input est horizontal puis pivoté de 90° : sa largeur AVANT
+              // rotation doit correspondre à la hauteur RÉELLE du conteneur
+              // (mesurée via ResizeObserver), pas à sa largeur (40px) — d'où
+              // la mesure dynamique plutôt qu'un simple "100%".
+              width: zoomSliderSize.height,
+              height: 32,
+              top: '50%',
+              left: '50%',
+              transform: 'translate(-50%, -50%) rotate(90deg)',
+              transformOrigin: 'center',
+              margin: 0,
+              touchAction: 'none',
+            }}
+          />
+        )}
       </div>
 
       {/* Curseur de temps, horizontal, en bas (au-dessus des zones de geste système) */}
