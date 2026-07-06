@@ -11,7 +11,7 @@ export const KDE_PARAMS = {
   sizeMpc: 0.59, // sigma du halo
   amplitude: 3.5, // contraste de brillance
   haloScale: 0.35, // luminosité du halo (réduite : trop de halos proches se cumulaient visuellement)
-  coreScale: 3.2, // luminosité du point central (renforcée pour rester bien visible malgré le halo réduit)
+  coreScale: 1.3, // luminosité du point central (réduite — la valeur précédente était trop lumineuse à tous les zooms)
 }
 
 // Plage de zoom où le layer Groupe Local domine (cf. layerWeights.ts : LAYER_EDGES_MPC[0..1]).
