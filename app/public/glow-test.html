@@ -75,6 +75,16 @@
       <input type="range" id="ampSlider" min="0.5" max="6" step="0.1" value="3" />
       <span class="val" id="ampVal">3.0</span>
     </div>
+    <div class="ctrl">
+      <label>Luminosité du halo</label>
+      <input type="range" id="haloSlider" min="0" max="2" step="0.05" value="1" />
+      <span class="val" id="haloVal">1.00</span>
+    </div>
+    <div class="ctrl">
+      <label>Luminosité du point central</label>
+      <input type="range" id="coreSlider" min="0" max="4" step="0.1" value="1.5" />
+      <span class="val" id="coreVal">1.5</span>
+    </div>
   </div>
 </div>
 
@@ -133,8 +143,11 @@ Promise.all([
 function renderKde(size, halfWidthMpc) {
   const sigmaMpc = parseFloat(document.getElementById('sizeSlider').value);
   const amp = parseFloat(document.getElementById('ampSlider').value);
+  const haloScale = parseFloat(document.getElementById('haloSlider').value);
+  const coreScale = parseFloat(document.getElementById('coreSlider').value);
   const n = KDE_GRID_N;
   const pixelSizeMpc = (2*halfWidthMpc)/n;
+  const coreSigmaMpc = pixelSizeMpc * 1.3; // point compact : ~1-2 pixels quel que soit le zoom
   const field = new Float64Array(n*n);
   const visible = catalog.filter(g => g.distanceMpc <= halfWidthMpc*1.2);
 
@@ -142,13 +155,23 @@ function renderKde(size, halfWidthMpc) {
     const rad = gal.angleDeg*Math.PI/180;
     const gx = Math.cos(rad)*gal.distanceMpc, gy = Math.sin(rad)*gal.distanceMpc;
     const peakAmp = Math.log(1 + gal.brightness*amp);
-    const spanPx = Math.max(2, Math.ceil((sigmaMpc*4)/pixelSizeMpc));
+    // Halo large (tendance de densité)
+    const haloSpanPx = Math.max(2, Math.ceil((sigmaMpc*4)/pixelSizeMpc));
     const cx = Math.round(n/2 + gx/pixelSizeMpc), cy = Math.round(n/2 + gy/pixelSizeMpc);
-    for (let y=Math.max(0,cy-spanPx); y<Math.min(n,cy+spanPx); y++){
-      for (let x=Math.max(0,cx-spanPx); x<Math.min(n,cx+spanPx); x++){
+    for (let y=Math.max(0,cy-haloSpanPx); y<Math.min(n,cy+haloSpanPx); y++){
+      for (let x=Math.max(0,cx-haloSpanPx); x<Math.min(n,cx+haloSpanPx); x++){
         const xMpc=(x-n/2)*pixelSizeMpc, yMpc=(y-n/2)*pixelSizeMpc;
         const d2=(xMpc-gx)**2+(yMpc-gy)**2;
-        field[y*n+x] += peakAmp*Math.exp(-d2/(2*sigmaMpc*sigmaMpc));
+        field[y*n+x] += haloScale * peakAmp*Math.exp(-d2/(2*sigmaMpc*sigmaMpc));
+      }
+    }
+    // Point central compact (préfigure le rendu ponctuel du layer suivant)
+    const coreSpanPx = Math.max(1, Math.ceil((coreSigmaMpc*4)/pixelSizeMpc));
+    for (let y=Math.max(0,cy-coreSpanPx); y<Math.min(n,cy+coreSpanPx); y++){
+      for (let x=Math.max(0,cx-coreSpanPx); x<Math.min(n,cx+coreSpanPx); x++){
+        const xMpc=(x-n/2)*pixelSizeMpc, yMpc=(y-n/2)*pixelSizeMpc;
+        const d2=(xMpc-gx)**2+(yMpc-gy)**2;
+        field[y*n+x] += coreScale * peakAmp*Math.exp(-d2/(2*coreSigmaMpc*coreSigmaMpc));
       }
     }
   }
@@ -257,6 +280,8 @@ bind('widthSlider','widthVal',1);
 bind('grainSlider','grainVal',2);
 bind('sizeSlider','sizeVal',2);
 bind('ampSlider','ampVal',1);
+bind('haloSlider','haloVal',2);
+bind('coreSlider','coreVal',1);
 </script>
 </body>
 </html>
