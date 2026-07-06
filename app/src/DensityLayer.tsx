@@ -8,7 +8,7 @@ const STYLE_WORKING_RES = 256 // résolution utilisée lors de la calibration (g
 // Marge de génération des textures (cf. scripts/generate_layers.py et
 // generate_local_group_texture.py) : chaque texture couvre en réalité
 // layer.maxMpc * MARGIN_FACTOR de demi-largeur physique, pas seulement
-// layer.maxMpc — nécessaire pour le futur recadrage rectangulaire (portrait/
+// layer.maxMpc — nécessaire pour le recadrage rectangulaire (portrait/
 // paysage) sans letterboxing. Garder cette valeur synchronisée avec le Python.
 const MARGIN_FACTOR = 1.5
 
@@ -33,23 +33,27 @@ interface DensityLayerProps {
   style: DensityStyle
   opacity: number
   halfWidthMpc: number
+  width: number
+  height: number
 }
 
 /**
- * Couche de densité multi-layers (Phase 4, étape 1).
+ * Couche de densité multi-layers.
  *
- * Charge les 4 textures procédurales (générées hors-ligne par
- * scripts/generate_layers.py, avec héritage hiérarchique entre échelles),
- * les recolore selon le style choisi, puis les mélange avec un fondu doux
- * autour de chaque frontière d'échelle en fonction du zoom courant.
+ * Charge les textures procédurales (générées hors-ligne, avec héritage
+ * hiérarchique entre échelles), les recolore selon le style choisi, puis les
+ * mélange avec un fondu doux autour de chaque frontière d'échelle en
+ * fonction du zoom courant. Le recadrage est RECTANGULAIRE (proportionnel à
+ * width/height) pour remplir tout l'écran sans déformation, en coordonnées
+ * flottantes (pas d'arrondi pixel) pour éviter tout jitter au zoom.
  */
-export default function DensityLayer({ style, opacity, halfWidthMpc }: DensityLayerProps) {
+export default function DensityLayer({ style, opacity, halfWidthMpc, width, height }: DensityLayerProps) {
   const outputCanvasRef = useRef<HTMLCanvasElement>(null)
   const grayDataRef = useRef<Record<string, ImageData>>({})
   const colorizedRef = useRef<Record<string, HTMLCanvasElement>>({})
   const loadedCountRef = useRef(0)
 
-  // Chargement unique des 4 textures sources en niveaux de gris.
+  // Chargement unique des textures sources en niveaux de gris.
   useEffect(() => {
     PROCEDURAL_LAYERS.forEach((layer) => {
       const img = new Image()
@@ -107,7 +111,7 @@ export default function DensityLayer({ style, opacity, halfWidthMpc }: DensityLa
 
   function draw() {
     const outCanvas = outputCanvasRef.current
-    if (!outCanvas) return
+    if (!outCanvas || width < 1 || height < 1) return
     const ctx = outCanvas.getContext('2d')
     if (!ctx) return
 
@@ -116,6 +120,12 @@ export default function DensityLayer({ style, opacity, halfWidthMpc }: DensityLa
     ctx.clearRect(0, 0, W, H)
 
     const weights = getLayerWeights(halfWidthMpc)
+    const shortSide = Math.min(W, H)
+    // Demi-largeur physique (Mpc) couverte par chaque axe de l'écran — basée
+    // sur le côté le plus court pour que "halfWidthMpc" garde son sens de
+    // "zoom" habituel, l'autre axe s'étend proportionnellement.
+    const halfWidthMpcX = (W / shortSide) * halfWidthMpc
+    const halfWidthMpcY = (H / shortSide) * halfWidthMpc
 
     // Ordre du plus grand (coarse) au plus petit (fin) — cohérent avec la
     // construction emboîtée des textures (§4.4 du document d'architecture).
@@ -126,13 +136,19 @@ export default function DensityLayer({ style, opacity, halfWidthMpc }: DensityLa
       const source = colorizedRef.current[layer.key]
       if (!source) continue
 
-      const n = source.width
-      const frac = Math.min(halfWidthMpc / (layer.maxMpc * MARGIN_FACTOR), 1)
-      const cropSize = Math.max(Math.round(n * frac), 2)
-      const start = Math.round((n - cropSize) / 2)
+      const n = source.width // texture carrée (n x n)
+      const texturePxPerMpc = n / (2 * layer.maxMpc * MARGIN_FACTOR)
+
+      // Coordonnées FLOTTANTES (pas d'arrondi) : un arrondi au pixel près,
+      // une fois agrandi à l'échelle de l'écran, provoquait un jitter très
+      // visible aux niveaux de zoom où le recadrage source est petit.
+      const cropW = Math.min(2 * halfWidthMpcX * texturePxPerMpc, n)
+      const cropH = Math.min(2 * halfWidthMpcY * texturePxPerMpc, n)
+      const startX = (n - cropW) / 2
+      const startY = (n - cropH) / 2
 
       ctx.globalAlpha = w
-      ctx.drawImage(source, start, start, cropSize, cropSize, 0, 0, W, H)
+      ctx.drawImage(source, startX, startY, cropW, cropH, 0, 0, W, H)
     }
     ctx.globalAlpha = 1
   }
@@ -146,19 +162,19 @@ export default function DensityLayer({ style, opacity, halfWidthMpc }: DensityLa
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [style])
 
-  // Redessin (recadrage/fondu) quand le zoom change.
+  // Redessin (recadrage/fondu) quand le zoom ou la taille de l'écran changent.
   useEffect(() => {
     if (loadedCountRef.current === PROCEDURAL_LAYERS.length) {
       draw()
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [halfWidthMpc])
+  }, [halfWidthMpc, width, height])
 
   return (
     <canvas
       ref={outputCanvasRef}
-      width={512}
-      height={512}
+      width={Math.max(Math.round(width), 1)}
+      height={Math.max(Math.round(height), 1)}
       style={{
         position: 'absolute',
         top: 0,
@@ -166,7 +182,6 @@ export default function DensityLayer({ style, opacity, halfWidthMpc }: DensityLa
         width: '100%',
         height: '100%',
         opacity,
-        borderRadius: 8,
       }}
     />
   )
