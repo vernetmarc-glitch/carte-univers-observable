@@ -9,9 +9,11 @@ interface MilkyWayLayerProps {
   halfWidthMpc: number
   opacity: number
   style: DensityStyle
+  width: number
+  height: number
 }
 
-export default function MilkyWayLayer({ halfWidthMpc, opacity, style }: MilkyWayLayerProps) {
+export default function MilkyWayLayer({ halfWidthMpc, opacity, style, width, height }: MilkyWayLayerProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const starsRef = useRef<GalaxyStar[] | null>(null)
   const gmRef = useRef<GalaxyModelApi | null>(null)
@@ -35,31 +37,33 @@ export default function MilkyWayLayer({ halfWidthMpc, opacity, style }: MilkyWay
       const canvas = canvasRef.current
       const stars = starsRef.current
       const gm = gmRef.current
-      if (!canvas) return
+      if (!canvas || width < 1 || height < 1) return
       const ctx = canvas.getContext('2d')
       if (!ctx) return
 
-      const size = canvas.width
+      const W = canvas.width
+      const H = canvas.height
       if (!stars || !gm || weight < 0.003) {
-        ctx.clearRect(0, 0, size, size)
+        ctx.clearRect(0, 0, W, H)
         return
       }
 
+      const shortSide = Math.min(W, H)
       const halfWidthLy = halfWidthMpc * LY_PER_MPC
-      const scale = size / 2 / halfWidthLy
-      const originX = size / 2
-      const originY = size / 2
+      const scale = shortSide / 2 / halfWidthLy
+      const originX = W / 2
+      const originY = H / 2
       const margin = 8
 
-      ctx.clearRect(0, 0, size, size)
+      ctx.clearRect(0, 0, W, H)
       ctx.fillStyle = 'rgb(0,0,4)'
-      ctx.fillRect(0, 0, size, size)
+      ctx.fillRect(0, 0, W, H)
 
       for (let i = 0; i < stars.length; i++) {
         const star = stars[i]
         const x = originX + star.gx * scale
         const y = originY + star.gy * scale * gm.YSCALE
-        if (x < -margin || x > size + margin || y < -margin || y > size + margin) continue
+        if (x < -margin || x > W + margin || y < -margin || y > H + margin) continue
         const r = Math.max(star.sz * scale * 400, 0.4)
         const [cr, cg, cb] = colorForValue(Math.min(star.b + 0.15, 1), style)
         ctx.fillStyle = `rgb(${cr},${cg},${cb})`
@@ -74,13 +78,13 @@ export default function MilkyWayLayer({ halfWidthMpc, opacity, style }: MilkyWay
     return () => {
       if (rafRef.current !== null) cancelAnimationFrame(rafRef.current)
     }
-  }, [halfWidthMpc, ready, weight, style])
+  }, [halfWidthMpc, ready, weight, style, width, height])
 
   return (
     <canvas
       ref={canvasRef}
-      width={640}
-      height={640}
+      width={Math.max(Math.round(width), 1)}
+      height={Math.max(Math.round(height), 1)}
       style={{
         position: 'absolute',
         top: 0,
@@ -88,7 +92,6 @@ export default function MilkyWayLayer({ halfWidthMpc, opacity, style }: MilkyWay
         width: '100%',
         height: '100%',
         opacity: opacity * weight,
-        borderRadius: 8,
       }}
     />
   )
