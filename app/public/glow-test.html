@@ -51,6 +51,10 @@
     <input type="range" id="sharpSlider" min="0" max="3" step="0.05" value="0" />
   </div>
   <div class="ctrl">
+    <label>Échelle de structure (rayon) <span class="val" id="sharpRadiusVal">2.5</span></label>
+    <input type="range" id="sharpRadiusSlider" min="1" max="40" step="0.5" value="2.5" />
+  </div>
+  <div class="ctrl">
     <label>Halo (bloom) <span class="val" id="haloVal">0.00</span></label>
     <input type="range" id="haloSlider" min="0" max="2" step="0.05" value="0" />
   </div>
@@ -86,16 +90,17 @@ let currentLayerIdx = 2; // l3 par défaut (le plus filamenteux)
 // Cohérent avec app/src/densityStyle.ts : paramètres calibrés par layer,
 // PAS un unique jeu de valeurs partagé (cf. discussion du 6 juillet — une
 // calibration écrasait la précédente sans stockage par layer).
-const DEFAULT_PARAMS = { gamma: 0.75, soften: 0, sharpen: 0, halo: 0.1, pointIntensity: 0.6, pointThreshold: 82, pointSize: 1.5 };
+const DEFAULT_PARAMS = { gamma: 0.75, soften: 0, sharpen: 0, sharpenRadius: 2.5, halo: 0.1, pointIntensity: 0.6, pointThreshold: 82, pointSize: 1.5 };
 const PARAMS_BY_LAYER = {
-  l2: { gamma: 0.85, soften: 0, sharpen: 0, halo: 0.25, pointIntensity: 0.6, pointThreshold: 81.0, pointSize: 2.5 },
-  l4: { gamma: 0.65, soften: 0, sharpen: 0, halo: 0, pointIntensity: 1.0, pointThreshold: 82.5, pointSize: 1.0 },
+  l2: { gamma: 0.85, soften: 0, sharpen: 0, sharpenRadius: 2.5, halo: 0.25, pointIntensity: 0.6, pointThreshold: 81.0, pointSize: 2.5 },
+  l4: { gamma: 0.65, soften: 0, sharpen: 0, sharpenRadius: 2.5, halo: 0, pointIntensity: 1.0, pointThreshold: 82.5, pointSize: 1.0 },
 };
 function paramsForLayer(key) { return PARAMS_BY_LAYER[key] || DEFAULT_PARAMS; }
 
 function loadParamsIntoSliders(key) {
   const p = paramsForLayer(key);
   const map = [['gammaSlider','gammaVal',p.gamma,2],['softSlider','softVal',p.soften,1],['sharpSlider','sharpVal',p.sharpen,2],
+    ['sharpRadiusSlider','sharpRadiusVal',p.sharpenRadius,1],
     ['haloSlider','haloVal',p.halo,2],['pointIntSlider','pointIntVal',p.pointIntensity,2],
     ['pointThreshSlider','pointThreshVal',p.pointThreshold,1],['pointSizeSlider','pointSizeVal',p.pointSize,1]];
   for (const [sliderId, valId, val, digits] of map) {
@@ -173,6 +178,7 @@ function getParams() {
     gamma: parseFloat(document.getElementById('gammaSlider').value),
     soften: parseFloat(document.getElementById('softSlider').value),
     sharpen: parseFloat(document.getElementById('sharpSlider').value),
+    sharpenRadius: parseFloat(document.getElementById('sharpRadiusSlider').value),
     halo: parseFloat(document.getElementById('haloSlider').value),
     pointIntensity: parseFloat(document.getElementById('pointIntSlider').value),
     pointThreshold: parseFloat(document.getElementById('pointThreshSlider').value),
@@ -184,7 +190,7 @@ function getParams() {
 function processDensityField(grayValues, n, params) {
   let field = params.soften > 0.05 ? boxBlur(grayValues, n, n, params.soften) : Float32Array.from(grayValues);
   if (params.sharpen > 0.01) {
-    const blurred = boxBlur(field, n, n, 2.5);
+    const blurred = boxBlur(field, n, n, params.sharpenRadius);
     for (let i=0;i<field.length;i++) field[i] = field[i] + params.sharpen*(field[i]-blurred[i]);
   }
   let vmin=Infinity, vmax=-Infinity;
@@ -333,9 +339,9 @@ function bind(id, valId, digits) {
     else reprocessCurrentLayer();
   });
 }
-['gammaSlider','softSlider','sharpSlider','haloSlider','pointIntSlider','pointThreshSlider','pointSizeSlider'].forEach((id,i) => {
-  const valIds = ['gammaVal','softVal','sharpVal','haloVal','pointIntVal','pointThreshVal','pointSizeVal'];
-  const digitsArr = [2,1,2,2,2,1,1];
+['gammaSlider','softSlider','sharpSlider','sharpRadiusSlider','haloSlider','pointIntSlider','pointThreshSlider','pointSizeSlider'].forEach((id,i) => {
+  const valIds = ['gammaVal','softVal','sharpVal','sharpRadiusVal','haloVal','pointIntVal','pointThreshVal','pointSizeVal'];
+  const digitsArr = [2,1,2,1,2,2,1,1];
   bind(id, valIds[i], digitsArr[i]);
 });
 bind('zoomSlider', null, 0);
