@@ -117,13 +117,19 @@ def export_layer_png(log_density, vmin, vmax, path):
 
 
 def build_structured_anchor_field(catalog, max_mpc, n):
-    """Construit un champ 2D avec une bosse de densité (gaussienne) à la
-    position de chaque galaxie du catalogue. Chaque bosse est localisée
-    (naturellement quasi nulle loin de son centre) : pas besoin de masque
-    radial global, le champ résultant est déjà nul au-delà de ~10 Mpc (portée
-    du catalogue), donc pas de frontière circulaire artificielle.
+    """Construit un champ 2D avec, pour chaque galaxie du catalogue, un halo
+    gaussien large + un point central compact — formule calibrée
+    visuellement via app/public/glow-test.html (voir aussi
+    app/src/kdeRender.ts, source de vérité JS de la même formule).
+    Ne pas modifier ces constantes sans repasser par cet outil.
     """
+    SIZE_MPC = 0.59       # sigma du halo
+    AMPLITUDE = 3.5       # contraste de brillance
+    HALO_SCALE = 0.85     # luminosite du halo
+    CORE_SCALE = 2.5      # luminosite du point central
+
     pixel_size_mpc = (2 * max_mpc) / n
+    core_sigma_mpc = pixel_size_mpc * 1.3
     yy, xx = np.indices((n, n))
     cx, cy = n / 2, n / 2
     x_mpc = (xx - cx) * pixel_size_mpc
@@ -134,23 +140,18 @@ def build_structured_anchor_field(catalog, max_mpc, n):
         angle_rad = np.radians(gal["angleDeg"])
         gx = np.cos(angle_rad) * gal["distanceMpc"]
         gy = np.sin(angle_rad) * gal["distanceMpc"]
-        # Sigma réduit (0.08-0.15 Mpc, contre 0.25-0.5 avant) : rapproche la
-        # taille apparente de ces bosses de celle des vraies galaxies rendues
-        # sur le layer Groupe Local, pour limiter le saut de taille à la
-        # transition entre les deux layers.
-        sigma_mpc = 0.08 + gal["brightness"] * 0.07
-        peak_factor = 1.0 + gal["brightness"] * 4.0
-        amplitude = np.log(peak_factor)
-        field += amplitude * np.exp(-((x_mpc - gx) ** 2 + (y_mpc - gy) ** 2) / (2 * sigma_mpc ** 2))
+        peak_amp = np.log(1 + gal["brightness"] * AMPLITUDE)
+        field += HALO_SCALE * peak_amp * np.exp(-((x_mpc - gx) ** 2 + (y_mpc - gy) ** 2) / (2 * SIZE_MPC ** 2))
+        field += CORE_SCALE * peak_amp * np.exp(-((x_mpc - gx) ** 2 + (y_mpc - gy) ** 2) / (2 * core_sigma_mpc ** 2))
     return field
 
 
 def apply_local_group_anchor(field, max_mpc, n, catalog):
     """Ajoute les bosses de densité du catalogue PAR-DESSUS le champ aléatoire
-    existant (additif), au lieu de le remplacer. Le bruit fin d'origine reste
-    donc présent partout, y compris entre les bosses — même "finesse" de
-    texture qu'en périphérie, avec juste des pics supplémentaires localisés
-    aux positions réelles/procédurales du catalogue.
+    existant (additif). Le rôle de cet ancrage est désormais réduit : la
+    frontière Groupe Local/L2 calibrée est à 2.4 Mpc (cf. layerWeights.ts),
+    bien en-deçà de l'étendue du catalogue (jusqu'à 10 Mpc) — cet ancrage ne
+    sert plus qu'à une continuité de second ordre au-delà de la frontière.
     """
     structured_target = build_structured_anchor_field(catalog, max_mpc, n)
     return field + structured_target
