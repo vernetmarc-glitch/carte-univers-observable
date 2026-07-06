@@ -6,14 +6,15 @@ import { processDensityField } from './densityStyle'
 const STYLE_WORKING_RES = 256 // résolution utilisée lors de la calibration (glow-test.html)
 
 interface ProceduralLayer {
-  key: 'l2' | 'l3' | 'l4' | 'l4b' | 'l5'
+  key: 'localgroup' | 'l2' | 'l3' | 'l4' | 'l4b' | 'l5'
   maxMpc: number
 }
 
-// Du plus petit au plus grand — cf. document d'architecture §4.1. Le layer 1
-// (local) est géré séparément par MilkyWayLayer (rendu de points, pas une
-// texture), et n'apparaît donc pas ici.
+// Du plus petit au plus grand — cf. document d'architecture §4.1. "localgroup"
+// est maintenant une texture statique (comme les autres), générée hors-ligne
+// par scripts/generate_local_group_texture.py — plus de calcul par frame.
 const PROCEDURAL_LAYERS: ProceduralLayer[] = [
+  { key: 'localgroup', maxMpc: 2.4 },
   { key: 'l2', maxMpc: 30 },
   { key: 'l3', maxMpc: 150 },
   { key: 'l4', maxMpc: 300 },
