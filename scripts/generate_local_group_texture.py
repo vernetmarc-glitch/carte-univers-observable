@@ -17,7 +17,8 @@ from PIL import Image
 from generate_local_group_catalog import build_catalog
 
 N = 512
-MAX_MPC = 2.4  # cf. layerWeights.ts : frontiere Groupe Local / L2
+MAX_MPC = 2.4  # cf. layerWeights.ts : frontiere Groupe Local / L2 (frontiere LOGIQUE)
+MARGIN_FACTOR = 1.5  # cf. generate_layers.py : meme marge, pour recadrage rectangulaire
 
 SIZE_MPC = 0.02       # sigma du halo, calé sur le rayon reel de la Voie lactee (~0.016 Mpc)
 AMPLITUDE = 3.5
@@ -25,8 +26,9 @@ HALO_SCALE = 0.85     # remonte (etait 0.55) pour mieux voir les galaxies, tout 
 CORE_SCALE = 1.1
 
 
-def build_field(catalog, max_mpc, n):
-    pixel_size_mpc = (2 * max_mpc) / n
+def build_field(catalog, max_mpc, n, margin_factor=1.0):
+    box_mpc = 2 * max_mpc * margin_factor
+    pixel_size_mpc = box_mpc / n
     core_sigma_mpc = pixel_size_mpc * 1.5
     yy, xx = np.indices((n, n))
     cx, cy = n / 2, n / 2
@@ -35,7 +37,7 @@ def build_field(catalog, max_mpc, n):
 
     field = np.zeros((n, n))
     for gal in catalog:
-        if gal["distanceMpc"] > max_mpc * 1.05:
+        if gal["distanceMpc"] > max_mpc * margin_factor * 1.05:
             continue
         angle_rad = np.radians(gal["angleDeg"])
         gx = np.cos(angle_rad) * gal["distanceMpc"]
@@ -48,7 +50,7 @@ def build_field(catalog, max_mpc, n):
 
 if __name__ == "__main__":
     catalog = build_catalog()
-    field = build_field(catalog, MAX_MPC, N)
+    field = build_field(catalog, MAX_MPC, N, margin_factor=MARGIN_FACTOR)
 
     vmax = max(field.max(), 0.05)
     norm = np.clip(field / vmax, 0, 1)
