@@ -37,9 +37,20 @@ N = 1024  # marge de securite supplementaire, en plus du fix DPR cote app
 # uniquement au zoom maximal absolu.
 MARGIN_FACTOR = 1.5
 
-def box_mpc(max_mpc):
+# L5 est le SEUL layer visible pile à son bord extrême (le zoom maximal absolu
+# de toute la carte) — c'est là que le letterboxing apparaissait sur les
+# écrans de téléphone très allongés (~2,17:1). Les autres layers ont toujours
+# une marge de manœuvre car on quitte leur plage avant d'atteindre leur bord.
+# Une marge dédiée plus large, réservée à L5, couvre large sans pénaliser la
+# résolution des autres layers.
+MARGIN_FACTOR_L5 = 2.4
+
+def margin_for(key):
+    return MARGIN_FACTOR_L5 if key == "l5" else MARGIN_FACTOR
+
+def box_mpc(max_mpc, margin=MARGIN_FACTOR):
     """Étendue physique réellement générée (avec marge), en Mpc, côté total."""
-    return 2 * max_mpc * MARGIN_FACTOR
+    return 2 * max_mpc * margin
 
 # (clé, demi-largeur en Mpc comobiles, seed) — de la plus grande à la plus petite échelle.
 # "l4b", "l5a", "l4a", "l3b", "l2b" sont des paliers TECHNIQUES intermédiaires
@@ -106,10 +117,16 @@ def generate_raw_field(n, box_mpc, seed, highpass_k=None):
     return field
 
 
-def crop_and_upsample(parent_field, parent_max_mpc, child_max_mpc, n):
+def crop_and_upsample(parent_field, parent_max_mpc, child_max_mpc, n, parent_margin, child_margin):
     """Recadre la région centrale du champ parent correspondant à l'étendue
-    du layer fils, puis suréchantillonne (spline cubique) à la résolution n."""
-    frac = child_max_mpc / parent_max_mpc
+    du layer fils, puis suréchantillonne (spline cubique) à la résolution n.
+
+    Généralisé pour accepter des marges DIFFÉRENTES entre parent et enfant
+    (cf. MARGIN_FACTOR_L5) : la fraction à recadrer doit être calculée sur
+    les étendues physiques réelles (max_mpc * marge), pas seulement le
+    rapport des max_mpc logiques, sous peine de recadrer la mauvaise portion.
+    """
+    frac = (child_max_mpc * child_margin) / (parent_max_mpc * parent_margin)
     crop_size = max(int(round(n * frac)), 4)
     start = (n - crop_size) // 2
     crop = parent_field[start:start + crop_size, start:start + crop_size]
@@ -224,16 +241,18 @@ def main():
     prev_field = None
 
     for spec in LAYER_SPECS:
+        margin = margin_for(spec["key"])
         if prev_field is None:
-            field = generate_raw_field(N, box_mpc(spec["max_mpc"]), spec["seed"])
+            field = generate_raw_field(N, box_mpc(spec["max_mpc"], margin), spec["seed"])
             field = normalize_variance(field)
         else:
+            prev_margin = margin_for(prev_spec["key"])
             coarse_trend = crop_and_upsample(
-                prev_field, prev_spec["max_mpc"], spec["max_mpc"], N
+                prev_field, prev_spec["max_mpc"], spec["max_mpc"], N, prev_margin, margin
             )
-            k_transition = np.pi * N / box_mpc(prev_spec["max_mpc"])
+            k_transition = np.pi * N / box_mpc(prev_spec["max_mpc"], prev_margin)
             detail = generate_raw_field(
-                N, box_mpc(spec["max_mpc"]), spec["seed"], highpass_k=k_transition
+                N, box_mpc(spec["max_mpc"], margin), spec["seed"], highpass_k=k_transition
             )
             field = normalize_variance(coarse_trend) * 0.6 + normalize_variance(detail) * 0.9
 
