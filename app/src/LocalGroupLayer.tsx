@@ -9,9 +9,11 @@ interface LocalGroupLayerProps {
   halfWidthMpc: number
   opacity: number
   style: DensityStyle
+  width: number
+  height: number
 }
 
-export default function LocalGroupLayer({ halfWidthMpc, opacity, style }: LocalGroupLayerProps) {
+export default function LocalGroupLayer({ halfWidthMpc, opacity, style, width, height }: LocalGroupLayerProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const rafRef = useRef<number | null>(null)
   const starsRef = useRef<GalaxyStar[] | null>(null)
@@ -33,17 +35,19 @@ export default function LocalGroupLayer({ halfWidthMpc, opacity, style }: LocalG
 
     rafRef.current = requestAnimationFrame(() => {
       const canvas = canvasRef.current
-      if (!canvas) return
+      if (!canvas || width < 1 || height < 1) return
       const ctx = canvas.getContext('2d')
       if (!ctx) return
 
-      const size = canvas.width
-      ctx.clearRect(0, 0, size, size)
+      const W = canvas.width
+      const H = canvas.height
+      ctx.clearRect(0, 0, W, H)
       if (weight < 0.003) return
 
-      const scale = size / 2 / halfWidthMpc // px par Mpc
-      const originX = size / 2
-      const originY = size / 2
+      const shortSide = Math.min(W, H)
+      const scale = shortSide / 2 / halfWidthMpc // px par Mpc
+      const originX = W / 2
+      const originY = H / 2
 
       // --- Notre propre galaxie : même forme que sur le layer "Voie lactée",
       // juste rendue à l'échelle du Mpc au lieu de l'année-lumière. Utilise le
@@ -56,7 +60,7 @@ export default function LocalGroupLayer({ halfWidthMpc, opacity, style }: LocalG
           const star = stars[i]
           const x = originX + star.gx * scalePerLy
           const y = originY + star.gy * scalePerLy * gm.YSCALE
-          if (x < -2 || x > size + 2 || y < -2 || y > size + 2) continue
+          if (x < -2 || x > W + 2 || y < -2 || y > H + 2) continue
           const r = Math.max(star.sz * scalePerLy * 400, 0.3)
           const [cr, cg, cb] = colorForValue(Math.min(star.b + 0.15, 1), style)
           ctx.fillStyle = `rgb(${cr},${cg},${cb})`
@@ -77,13 +81,13 @@ export default function LocalGroupLayer({ halfWidthMpc, opacity, style }: LocalG
     return () => {
       if (rafRef.current !== null) cancelAnimationFrame(rafRef.current)
     }
-  }, [halfWidthMpc, weight, style, starsReady])
+  }, [halfWidthMpc, weight, style, starsReady, width, height])
 
   return (
     <canvas
       ref={canvasRef}
-      width={640}
-      height={640}
+      width={Math.max(Math.round(width), 1)}
+      height={Math.max(Math.round(height), 1)}
       style={{
         position: 'absolute',
         top: 0,
@@ -91,7 +95,6 @@ export default function LocalGroupLayer({ halfWidthMpc, opacity, style }: LocalG
         width: '100%',
         height: '100%',
         opacity: opacity * weight,
-        borderRadius: 8,
       }}
     />
   )
