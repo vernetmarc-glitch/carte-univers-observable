@@ -1,7 +1,7 @@
 import { useEffect, useRef } from 'react'
 import { type DensityStyle } from './colormaps'
 import { getLayerWeights } from './layerWeights'
-import { processDensityField } from './densityStyle'
+import { processDensityField, getStyleParamsForLayer } from './densityStyle'
 
 // Marge de génération des textures (cf. scripts/generate_layers.py et
 // generate_local_group_texture.py) : chaque texture couvre en réalité
@@ -104,7 +104,7 @@ export default function DensityLayer({ style, opacity, halfWidthMpc, width, heig
       const grayValues = new Float32Array(n * n)
       for (let i = 0; i < grayValues.length; i++) grayValues[i] = gray.data[i * 4] / 255
 
-      const processed = processDensityField(grayValues, n, style)
+      const processed = processDensityField(grayValues, n, style, getStyleParamsForLayer(layer.key))
 
       const canvas = document.createElement('canvas')
       canvas.width = n
