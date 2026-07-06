@@ -11,9 +11,10 @@ interface MilkyWayLayerProps {
   style: DensityStyle
   width: number
   height: number
+  dpr: number
 }
 
-export default function MilkyWayLayer({ halfWidthMpc, opacity, style, width, height }: MilkyWayLayerProps) {
+export default function MilkyWayLayer({ halfWidthMpc, opacity, style, width, height, dpr }: MilkyWayLayerProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const starsRef = useRef<GalaxyStar[] | null>(null)
   const gmRef = useRef<GalaxyModelApi | null>(null)
@@ -53,7 +54,7 @@ export default function MilkyWayLayer({ halfWidthMpc, opacity, style, width, hei
       const scale = shortSide / 2 / halfWidthLy
       const originX = W / 2
       const originY = H / 2
-      const margin = 8
+      const margin = 8 * dpr
 
       ctx.clearRect(0, 0, W, H)
       ctx.fillStyle = 'rgb(0,0,4)'
@@ -64,7 +65,7 @@ export default function MilkyWayLayer({ halfWidthMpc, opacity, style, width, hei
         const x = originX + star.gx * scale
         const y = originY + star.gy * scale * gm.YSCALE
         if (x < -margin || x > W + margin || y < -margin || y > H + margin) continue
-        const r = Math.max(star.sz * scale * 400, 0.4)
+        const r = Math.max(star.sz * scale * 400, 0.4 * dpr)
         const [cr, cg, cb] = colorForValue(Math.min(star.b + 0.15, 1), style)
         ctx.fillStyle = `rgb(${cr},${cg},${cb})`
         ctx.globalAlpha = Math.min(star.b + 0.3, 1)
@@ -78,7 +79,7 @@ export default function MilkyWayLayer({ halfWidthMpc, opacity, style, width, hei
     return () => {
       if (rafRef.current !== null) cancelAnimationFrame(rafRef.current)
     }
-  }, [halfWidthMpc, ready, weight, style, width, height])
+  }, [halfWidthMpc, ready, weight, style, width, height, dpr])
 
   return (
     <canvas
