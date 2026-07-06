@@ -3,17 +3,9 @@ import { getLayerWeights } from './layerWeights'
 import { colorForValue, type DensityStyle } from './colormaps'
 import { onGalaxyReady, type GalaxyStar, type GalaxyModelApi } from './galaxyModelLoader'
 import { generateNearbyGalaxyStars } from './nearbyGalaxyStars'
+import { useRealGalaxyCatalog } from './useRealGalaxyCatalog'
 
 const LY_PER_MPC = 3.26156e6
-
-interface CatalogGalaxy {
-  name: string | null
-  distanceMpc: number
-  radiusMpc: number
-  angleDeg: number
-  brightness: number
-  isReal: boolean
-}
 
 interface LocalGroupLayerProps {
   halfWidthMpc: number
@@ -29,9 +21,8 @@ export default function LocalGroupLayer({ halfWidthMpc, opacity, style, width, h
   const rafRef = useRef<number | null>(null)
   const starsRef = useRef<GalaxyStar[] | null>(null)
   const gmRef = useRef<GalaxyModelApi | null>(null)
-  const catalogRef = useRef<CatalogGalaxy[] | null>(null)
+  const catalog = useRealGalaxyCatalog()
   const [starsReady, setStarsReady] = useState(false)
-  const [catalogReady, setCatalogReady] = useState(false)
 
   useEffect(() => {
     return onGalaxyReady((stars, gm) => {
@@ -39,15 +30,6 @@ export default function LocalGroupLayer({ halfWidthMpc, opacity, style, width, h
       gmRef.current = gm
       setStarsReady(true)
     })
-  }, [])
-
-  useEffect(() => {
-    fetch(`${import.meta.env.BASE_URL}data/local_group_catalog.json`)
-      .then((res) => res.json())
-      .then((catalog: CatalogGalaxy[]) => {
-        catalogRef.current = catalog.filter((g) => g.isReal)
-        setCatalogReady(true)
-      })
   }, [])
 
   const weight = getLayerWeights(halfWidthMpc).localgroup
@@ -97,7 +79,6 @@ export default function LocalGroupLayer({ halfWidthMpc, opacity, style, width, h
       // --- Galaxies réelles voisines : semis de points (pas une tache),
       // dimensionné sur leur vrai rayon (radiusMpc), positionné à leur vraie
       // distance/angle — cohérent visuellement avec la Voie lactée.
-      const catalog = catalogRef.current
       if (catalog) {
         for (const gal of catalog) {
           const rad = (gal.angleDeg * Math.PI) / 180
@@ -115,8 +96,8 @@ export default function LocalGroupLayer({ halfWidthMpc, opacity, style, width, h
           const seed = (gal.name?.length ?? 1) * 7919 + Math.round(gal.distanceMpc * 100000)
           const galStars = generateNearbyGalaxyStars(gal.name ?? '', gal.radiusMpc, gal.brightness, seed)
           for (const s of galStars) {
-            const x = centerX + s.dx * scale
-            const y = centerY + s.dy * scale
+            const x = centerX + s.dx * gal.radiusMpc * scale
+            const y = centerY + s.dy * gal.radiusMpc * scale
             const r = Math.max(0.35 * dpr, galRadiusPx * 0.02)
             const [cr, cg, cb] = colorForValue(Math.min(s.b + gal.brightness * 0.2, 1), style)
             ctx.fillStyle = `rgb(${cr},${cg},${cb})`
@@ -133,7 +114,7 @@ export default function LocalGroupLayer({ halfWidthMpc, opacity, style, width, h
     return () => {
       if (rafRef.current !== null) cancelAnimationFrame(rafRef.current)
     }
-  }, [halfWidthMpc, weight, style, starsReady, catalogReady, width, height, dpr])
+  }, [halfWidthMpc, weight, style, catalog, starsReady, width, height, dpr])
 
   return (
     <canvas
