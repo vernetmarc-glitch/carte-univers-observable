@@ -3,96 +3,78 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>Calibration — transition Groupe Local → L2</title>
+<title>Calibration — style de densité</title>
 <style>
   html, body { margin: 0; padding: 0; background: #05050a; color: #eee; font-family: system-ui, sans-serif; height: 100%; overflow: hidden; }
   .wrap { padding: 8px 10px; display: flex; flex-direction: column; height: 100dvh; box-sizing: border-box; }
-  h1 { font-size: 11px; font-weight: 600; margin: 0 0 3px; color: #ccc; }
-  p.note { font-size: 9px; color: #888; margin: 0 0 6px; }
-  .mainview { position: relative; width: 42%; margin: 0 auto; }
+  h1 { font-size: 11px; font-weight: 600; margin: 0 0 6px; color: #ccc; }
+  .mainview { width: 52%; margin: 0 auto; }
   .mainview canvas { width: 100%; aspect-ratio: 1/1; background: #000; border-radius: 6px; display: block; }
-  .refs { display: flex; gap: 6px; margin-top: 6px; }
-  .ref { flex: 1; }
-  .ref h2 { font-size: 8px; color: #888; margin: 0 0 2px; font-weight: 500; }
-  .ref canvas { width: 100%; aspect-ratio: 1/1; background: #000; border-radius: 5px; display: block; opacity: 0.85; }
-  .stat { font-size: 9px; color: #777; margin-top: 2px; font-family: monospace; text-align: center; }
-  .controls { margin-top: 8px; flex: 1; overflow: hidden; display: flex; flex-direction: column; gap: 5px; }
+  .layerRow { display: flex; gap: 6px; justify-content: center; margin-top: 6px; }
+  .layerRow button { background: transparent; border: 1px solid #333; color: #999; border-radius: 5px; padding: 3px 8px; font-size: 10px; }
+  .layerRow button.active { background: #2a2a3a; color: #fff; }
+  .controls { margin-top: 8px; flex: 1; overflow: hidden; display: flex; flex-direction: column; gap: 4px; }
   .ctrl { display: flex; align-items: center; gap: 6px; }
-  .ctrl label { font-size: 9.5px; color: #bbb; width: 145px; flex-shrink: 0; line-height: 1.15; }
+  .ctrl label { font-size: 9.5px; color: #bbb; width: 130px; flex-shrink: 0; line-height: 1.15; }
   .ctrl input[type=range] { flex: 1; height: 18px; }
-  .ctrl .val { font-size: 9.5px; color: #7fd1ff; width: 32px; flex-shrink: 0; text-align: right; font-family: monospace; }
+  .ctrl .val { font-size: 9.5px; color: #7fd1ff; width: 30px; flex-shrink: 0; text-align: right; font-family: monospace; }
 </style>
 </head>
 <body>
 <div class="wrap">
-  <h1>Transition Groupe Local (KDE) → densité L2</h1>
-  <p class="note">Vue principale = mélange réel au niveau de zoom choisi. Références = les deux extrêmes purs.</p>
+  <h1>Calibration du style de densité — filaments / halo / points</h1>
 
   <div class="mainview">
-    <canvas id="canvasBlend" width="320" height="320"></canvas>
+    <canvas id="canvas" width="384" height="384"></canvas>
   </div>
-  <div class="stat" id="statBlend"></div>
-
-  <div class="refs">
-    <div class="ref">
-      <h2>KDE pure (Groupe Local)</h2>
-      <canvas id="canvasKde" width="160" height="160"></canvas>
-    </div>
-    <div class="ref">
-      <h2>L2 brute (référence lointaine)</h2>
-      <canvas id="canvasL2" width="160" height="160"></canvas>
-    </div>
+  <div class="layerRow">
+    <button data-layer="l2">L2</button>
+    <button data-layer="l3" class="active">L3</button>
+    <button data-layer="l4">L4</button>
+    <button data-layer="l5">L5</button>
   </div>
 
   <div class="controls">
     <div class="ctrl">
-      <label>Position simulée (demi-champ, Mpc)</label>
-      <input type="range" id="posSlider" min="0.5" max="25" step="0.1" value="10" />
-      <span class="val" id="posVal">10.0</span>
+      <label>Contraste (gamma)</label>
+      <input type="range" id="gammaSlider" min="0.4" max="2.5" step="0.05" value="1.0" />
+      <span class="val" id="gammaVal">1.00</span>
     </div>
     <div class="ctrl">
-      <label>Frontière du fondu (Mpc)</label>
-      <input type="range" id="edgeSlider" min="0.5" max="20" step="0.1" value="10" />
-      <span class="val" id="edgeVal">10.0</span>
+      <label>Adoucissement (vapeur)</label>
+      <input type="range" id="softSlider" min="0" max="8" step="0.2" value="0" />
+      <span class="val" id="softVal">0.0</span>
     </div>
     <div class="ctrl">
-      <label>Largeur du fondu (Mpc)</label>
-      <input type="range" id="widthSlider" min="0.5" max="12" step="0.25" value="4" />
-      <span class="val" id="widthVal">4.0</span>
+      <label>Netteté filaments</label>
+      <input type="range" id="sharpSlider" min="0" max="3" step="0.05" value="0" />
+      <span class="val" id="sharpVal">0.00</span>
     </div>
     <div class="ctrl">
-      <label>Grain L2 minimum (près KDE)</label>
-      <input type="range" id="grainSlider" min="0" max="1" step="0.02" value="0.25" />
-      <span class="val" id="grainVal">0.25</span>
+      <label>Halo (bloom)</label>
+      <input type="range" id="haloSlider" min="0" max="2" step="0.05" value="0.5" />
+      <span class="val" id="haloVal">0.50</span>
     </div>
     <div class="ctrl">
-      <label>Taille galaxies KDE (Mpc)</label>
-      <input type="range" id="sizeSlider" min="0.05" max="1.5" step="0.01" value="0.3" />
-      <span class="val" id="sizeVal">0.30</span>
+      <label>Points lumineux (intensité)</label>
+      <input type="range" id="pointIntSlider" min="0" max="3" step="0.05" value="0" />
+      <span class="val" id="pointIntVal">0.00</span>
     </div>
     <div class="ctrl">
-      <label>Amplitude KDE</label>
-      <input type="range" id="ampSlider" min="0.5" max="6" step="0.1" value="3" />
-      <span class="val" id="ampVal">3.0</span>
+      <label>Points lumineux (seuil)</label>
+      <input type="range" id="pointThreshSlider" min="80" max="99.5" step="0.5" value="97" />
+      <span class="val" id="pointThreshVal">97.0</span>
     </div>
     <div class="ctrl">
-      <label>Luminosité du halo</label>
-      <input type="range" id="haloSlider" min="0" max="2" step="0.05" value="1" />
-      <span class="val" id="haloVal">1.00</span>
-    </div>
-    <div class="ctrl">
-      <label>Luminosité du point central</label>
-      <input type="range" id="coreSlider" min="0" max="4" step="0.1" value="1.5" />
-      <span class="val" id="coreVal">1.5</span>
+      <label>Points lumineux (taille)</label>
+      <input type="range" id="pointSizeSlider" min="1" max="8" step="0.5" value="3" />
+      <span class="val" id="pointSizeVal">3.0</span>
     </div>
   </div>
 </div>
 
 <script>
-const L2_MAX_MPC = 30;
-const L2_TEXTURE_SIZE = 512;
-const KDE_GRID_N = 200;
-const REF_HALF_WIDTH = 20; // champ de vue fixe pour les vignettes de référence
+const N = 256;
 
 const ASTRO_STOPS = [
   [0,0,0], [0x17,0x0a,0x05], [0x4a,0x1f,0x0a], [0xa8,0x48,0x0f], [0xe8,0xa1,0x3a], [0xff,0xf3,0xd6]
@@ -105,183 +87,182 @@ function colorForValue(t) {
   const a = ASTRO_STOPS[idx], b = ASTRO_STOPS[idx+1];
   return [a[0]+(b[0]-a[0])*frac, a[1]+(b[1]-a[1])*frac, a[2]+(b[2]-a[2])*frac];
 }
-function averageBrightness(ctx, w, h) {
-  const data = ctx.getImageData(0,0,w,h).data;
-  let sum = 0;
-  for (let i=0;i<data.length;i+=4) sum += (data[i]+data[i+1]+data[i+2])/3;
-  return sum / (data.length/4);
+
+let rawValues = {};
+let currentLayer = 'l3';
+
+function loadLayer(key) {
+  if (rawValues[key]) { draw(); return; }
+  const img = new Image();
+  img.src = `data/density_${key}.png`;
+  img.onload = () => {
+    const off = document.createElement('canvas');
+    off.width = N; off.height = N;
+    const octx = off.getContext('2d');
+    octx.drawImage(img, 0, 0, N, N);
+    const gray = octx.getImageData(0,0,N,N);
+    const values = new Float32Array(N*N);
+    for (let i=0;i<N*N;i++) values[i] = gray.data[i*4]/255;
+    rawValues[key] = values;
+    draw();
+  };
 }
-function smoothstep(e0, e1, x) {
-  const t = Math.min(Math.max((x-e0)/(e1-e0), 0), 1);
-  return t*t*(3-2*t);
-}
 
-let catalog = [];
-let l2Gray = null, l2W = 0, l2H = 0;
-
-Promise.all([
-  fetch('data/local_group_catalog.json').then(r=>r.json()),
-  new Promise((resolve) => {
-    const img = new Image();
-    img.src = 'data/density_l2.png';
-    img.onload = () => {
-      const off = document.createElement('canvas');
-      off.width = img.naturalWidth; off.height = img.naturalHeight;
-      const octx = off.getContext('2d');
-      octx.drawImage(img,0,0);
-      l2Gray = octx.getImageData(0,0,off.width, off.height);
-      l2W = off.width; l2H = off.height;
-      resolve();
-    };
-  })
-]).then(([cat]) => {
-  catalog = cat;
-  drawAll();
-});
-
-// Rend la KDE dans un canvas de taille size x size, pour un demi-champ donné (Mpc)
-function renderKde(size, halfWidthMpc) {
-  const sigmaMpc = parseFloat(document.getElementById('sizeSlider').value);
-  const amp = parseFloat(document.getElementById('ampSlider').value);
-  const haloScale = parseFloat(document.getElementById('haloSlider').value);
-  const coreScale = parseFloat(document.getElementById('coreSlider').value);
-  const n = KDE_GRID_N;
-  const pixelSizeMpc = (2*halfWidthMpc)/n;
-  const coreSigmaMpc = pixelSizeMpc * 1.3; // point compact : ~1-2 pixels quel que soit le zoom
-  const field = new Float64Array(n*n);
-  const visible = catalog.filter(g => g.distanceMpc <= halfWidthMpc*1.2);
-
-  for (const gal of visible) {
-    const rad = gal.angleDeg*Math.PI/180;
-    const gx = Math.cos(rad)*gal.distanceMpc, gy = Math.sin(rad)*gal.distanceMpc;
-    const peakAmp = Math.log(1 + gal.brightness*amp);
-    // Halo large (tendance de densité)
-    const haloSpanPx = Math.max(2, Math.ceil((sigmaMpc*4)/pixelSizeMpc));
-    const cx = Math.round(n/2 + gx/pixelSizeMpc), cy = Math.round(n/2 + gy/pixelSizeMpc);
-    for (let y=Math.max(0,cy-haloSpanPx); y<Math.min(n,cy+haloSpanPx); y++){
-      for (let x=Math.max(0,cx-haloSpanPx); x<Math.min(n,cx+haloSpanPx); x++){
-        const xMpc=(x-n/2)*pixelSizeMpc, yMpc=(y-n/2)*pixelSizeMpc;
-        const d2=(xMpc-gx)**2+(yMpc-gy)**2;
-        field[y*n+x] += haloScale * peakAmp*Math.exp(-d2/(2*sigmaMpc*sigmaMpc));
-      }
-    }
-    // Point central compact (préfigure le rendu ponctuel du layer suivant)
-    const coreSpanPx = Math.max(1, Math.ceil((coreSigmaMpc*4)/pixelSizeMpc));
-    for (let y=Math.max(0,cy-coreSpanPx); y<Math.min(n,cy+coreSpanPx); y++){
-      for (let x=Math.max(0,cx-coreSpanPx); x<Math.min(n,cx+coreSpanPx); x++){
-        const xMpc=(x-n/2)*pixelSizeMpc, yMpc=(y-n/2)*pixelSizeMpc;
-        const d2=(xMpc-gx)**2+(yMpc-gy)**2;
-        field[y*n+x] += coreScale * peakAmp*Math.exp(-d2/(2*coreSigmaMpc*coreSigmaMpc));
-      }
+function boxBlur(src, w, h, radius) {
+  if (radius < 0.5) return Float32Array.from(src);
+  const r = Math.round(radius);
+  const tmp = new Float32Array(w*h);
+  const out = new Float32Array(w*h);
+  for (let y=0;y<h;y++){
+    let sum=0, count=0;
+    for (let x=-r;x<=r;x++){ const xi=Math.min(Math.max(x,0),w-1); sum+=src[y*w+xi]; count++; }
+    for (let x=0;x<w;x++){
+      tmp[y*w+x]=sum/count;
+      const xOut=Math.min(Math.max(x-r,0),w-1), xIn=Math.min(Math.max(x+r+1,0),w-1);
+      sum += src[y*w+xIn] - src[y*w+xOut];
     }
   }
-  let vmax=0.05; for (let i=0;i<field.length;i++) if(field[i]>vmax) vmax=field[i];
+  for (let x=0;x<w;x++){
+    let sum=0, count=0;
+    for (let y=-r;y<=r;y++){ const yi=Math.min(Math.max(y,0),h-1); sum+=tmp[yi*w+x]; count++; }
+    for (let y=0;y<h;y++){
+      out[y*w+x]=sum/count;
+      const yOut=Math.min(Math.max(y-r,0),h-1), yIn=Math.min(Math.max(y+r+1,0),h-1);
+      sum += tmp[yIn*w+x] - tmp[yOut*w+x];
+    }
+  }
+  return out;
+}
 
-  const tmp = document.createElement('canvas'); tmp.width=n; tmp.height=n;
+function detectPeaks(values, w, h, thresholdPercentile, minDistPx) {
+  const sorted = Float32Array.from(values).sort();
+  const thresholdVal = sorted[Math.floor(sorted.length * thresholdPercentile/100)];
+  const candidates = [];
+  for (let y=1;y<h-1;y++){
+    for (let x=1;x<w-1;x++){
+      const v = values[y*w+x];
+      if (v < thresholdVal) continue;
+      let isMax = true;
+      for (let dy=-1;dy<=1 && isMax;dy++){
+        for (let dx=-1;dx<=1;dx++){
+          if (dx===0 && dy===0) continue;
+          if (values[(y+dy)*w+(x+dx)] > v) { isMax=false; break; }
+        }
+      }
+      if (isMax) candidates.push({x,y,v});
+    }
+  }
+  candidates.sort((a,b)=>b.v-a.v);
+  const selected = [];
+  for (const c of candidates) {
+    let tooClose = false;
+    for (const s of selected) {
+      const d2 = (c.x-s.x)**2 + (c.y-s.y)**2;
+      if (d2 < minDistPx*minDistPx) { tooClose = true; break; }
+    }
+    if (!tooClose) selected.push(c);
+    if (selected.length > 300) break;
+  }
+  return selected;
+}
+
+function draw() {
+  const values = rawValues[currentLayer];
+  if (!values) return;
+
+  const gamma = parseFloat(document.getElementById('gammaSlider').value);
+  const soft = parseFloat(document.getElementById('softSlider').value);
+  const sharp = parseFloat(document.getElementById('sharpSlider').value);
+  const halo = parseFloat(document.getElementById('haloSlider').value);
+  const pointInt = parseFloat(document.getElementById('pointIntSlider').value);
+  const pointThresh = parseFloat(document.getElementById('pointThreshSlider').value);
+  const pointSize = parseFloat(document.getElementById('pointSizeSlider').value);
+
+  let field = soft > 0.05 ? boxBlur(values, N, N, soft) : Float32Array.from(values);
+
+  if (sharp > 0.01) {
+    const blurred = boxBlur(field, N, N, 2.5);
+    for (let i=0;i<field.length;i++) field[i] = field[i] + sharp*(field[i]-blurred[i]);
+  }
+
+  let vmin=Infinity, vmax=-Infinity;
+  for (let i=0;i<field.length;i++){ if(field[i]<vmin)vmin=field[i]; if(field[i]>vmax)vmax=field[i]; }
+  const span = (vmax-vmin)||1;
+  const normed = new Float32Array(field.length);
+  for (let i=0;i<field.length;i++) normed[i] = Math.pow(Math.min(Math.max((field[i]-vmin)/span,0),1), 1/gamma);
+
+  const canvas = document.getElementById('canvas');
+  const ctx = canvas.getContext('2d');
+  const tmp = document.createElement('canvas'); tmp.width=N; tmp.height=N;
   const tctx = tmp.getContext('2d');
-  const out = tctx.createImageData(n,n);
-  for (let i=0;i<field.length;i++){
-    const v = field[i]/vmax;
-    const [r,g,b] = colorForValue(v);
+  const out = tctx.createImageData(N,N);
+  for (let i=0;i<normed.length;i++){
+    const [r,g,b] = colorForValue(normed[i]);
     out.data[i*4]=r; out.data[i*4+1]=g; out.data[i*4+2]=b; out.data[i*4+3]=255;
   }
   tctx.putImageData(out,0,0);
 
-  const result = document.createElement('canvas'); result.width=size; result.height=size;
-  result.getContext('2d').drawImage(tmp,0,0,size,size);
-  return result;
-}
+  if (halo > 0.02) {
+    const bright = new Float32Array(normed.length);
+    for (let i=0;i<normed.length;i++) bright[i] = Math.max(normed[i]-0.55,0)*2.2;
+    const bloomed = boxBlur(bright, N, N, 6);
+    const bloomCanvas = document.createElement('canvas'); bloomCanvas.width=N; bloomCanvas.height=N;
+    const bctx = bloomCanvas.getContext('2d');
+    const bout = bctx.createImageData(N,N);
+    for (let i=0;i<bloomed.length;i++){
+      const v = Math.min(bloomed[i]*halo,1);
+      const [r,g,b] = colorForValue(Math.min(normed[i]+v,1));
+      bout.data[i*4]=r; bout.data[i*4+1]=g; bout.data[i*4+2]=b; bout.data[i*4+3]=v*255;
+    }
+    bctx.putImageData(bout,0,0);
+    tctx.drawImage(bloomCanvas,0,0);
+  }
 
-// Rend un crop colorisé de la texture L2 pour un demi-champ donné (Mpc), avec
-// un niveau de "grain" réglable (0 = complètement lissé vers sa moyenne locale, 1 = brut)
-function renderL2(size, halfWidthMpc, grain) {
-  const frac = Math.min(halfWidthMpc / L2_MAX_MPC, 1);
-  const cropSize = Math.max(2, Math.round(L2_TEXTURE_SIZE * frac));
-  const start = Math.round((L2_TEXTURE_SIZE - cropSize)/2);
-
-  const sharp = document.createElement('canvas'); sharp.width=size; sharp.height=size;
-  const sctx = sharp.getContext('2d');
-  const out = sctx.createImageData(size,size);
-  for (let y=0;y<size;y++){
-    for (let x=0;x<size;x++){
-      const srcX = start + Math.floor(x/size*cropSize);
-      const srcY = start + Math.floor(y/size*cropSize);
-      const v = l2Gray.data[(srcY*l2W+srcX)*4]/255;
-      const [r,g,b] = colorForValue(v);
-      const idx=(y*size+x)*4;
-      out.data[idx]=r; out.data[idx+1]=g; out.data[idx+2]=b; out.data[idx+3]=255;
+  if (pointInt > 0.02) {
+    const peaks = detectPeaks(normed, N, N, pointThresh, pointSize*1.5);
+    for (const p of peaks) {
+      const [r,g,b] = colorForValue(1);
+      const grad = tctx.createRadialGradient(p.x,p.y,0,p.x,p.y,pointSize);
+      grad.addColorStop(0, `rgba(${r},${g},${b},${Math.min(pointInt,1)})`);
+      grad.addColorStop(1, `rgba(${r},${g},${b},0)`);
+      tctx.fillStyle = grad;
+      tctx.beginPath();
+      tctx.arc(p.x,p.y,pointSize,0,Math.PI*2);
+      tctx.fill();
     }
   }
-  sctx.putImageData(out,0,0);
 
-  if (grain >= 0.999) return sharp;
-
-  const blurred = document.createElement('canvas'); blurred.width=size; blurred.height=size;
-  const bctx = blurred.getContext('2d');
-  bctx.filter = `blur(${size*0.09}px)`;
-  bctx.drawImage(sharp, 0, 0);
-  bctx.filter = 'none';
-
-  const mixed = document.createElement('canvas'); mixed.width=size; mixed.height=size;
-  const mctx = mixed.getContext('2d');
-  mctx.drawImage(blurred, 0, 0);
-  mctx.globalAlpha = grain;
-  mctx.drawImage(sharp, 0, 0);
-  mctx.globalAlpha = 1;
-  return mixed;
+  ctx.clearRect(0,0,canvas.width,canvas.height);
+  ctx.imageSmoothingEnabled = true;
+  ctx.drawImage(tmp, 0, 0, canvas.width, canvas.height);
 }
 
-function drawAll() {
-  if (!catalog.length || !l2Gray) return;
-
-  const pos = parseFloat(document.getElementById('posSlider').value);
-  const edge = parseFloat(document.getElementById('edgeSlider').value);
-  const width = parseFloat(document.getElementById('widthSlider').value);
-  const grainMin = parseFloat(document.getElementById('grainSlider').value);
-
-  const wL2 = smoothstep(edge - width/2, edge + width/2, pos);
-  const wKde = 1 - wL2;
-  const grain = 1 - wKde * (1 - grainMin);
-
-  const blendCanvas = document.getElementById('canvasBlend');
-  const bctx = blendCanvas.getContext('2d');
-  const size = blendCanvas.width;
-  bctx.clearRect(0,0,size,size);
-
-  const l2Layer = renderL2(size, pos, grain);
-  const kdeLayer = renderKde(size, pos);
-
-  bctx.globalAlpha = wL2;
-  bctx.drawImage(l2Layer, 0, 0);
-  bctx.globalAlpha = wKde;
-  bctx.drawImage(kdeLayer, 0, 0);
-  bctx.globalAlpha = 1;
-
-  document.getElementById('statBlend').textContent =
-    `Poids KDE=${wKde.toFixed(2)} / L2=${wL2.toFixed(2)} — grain L2=${grain.toFixed(2)} — moy. ${averageBrightness(bctx,size,size).toFixed(0)}/255`;
-
-  const kdeRef = document.getElementById('canvasKde');
-  kdeRef.getContext('2d').drawImage(renderKde(kdeRef.width, REF_HALF_WIDTH), 0, 0);
-  const l2Ref = document.getElementById('canvasL2');
-  l2Ref.getContext('2d').drawImage(renderL2(l2Ref.width, REF_HALF_WIDTH, 1), 0, 0);
-}
+document.querySelectorAll('.layerRow button').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.layerRow button').forEach(b=>b.classList.remove('active'));
+    btn.classList.add('active');
+    currentLayer = btn.dataset.layer;
+    loadLayer(currentLayer);
+  });
+});
 
 function bind(id, labelId, digits) {
   const el = document.getElementById(id);
   const label = document.getElementById(labelId);
   el.addEventListener('input', () => {
     label.textContent = parseFloat(el.value).toFixed(digits);
-    drawAll();
+    draw();
   });
 }
-bind('posSlider','posVal',1);
-bind('edgeSlider','edgeVal',1);
-bind('widthSlider','widthVal',1);
-bind('grainSlider','grainVal',2);
-bind('sizeSlider','sizeVal',2);
-bind('ampSlider','ampVal',1);
+bind('gammaSlider','gammaVal',2);
+bind('softSlider','softVal',1);
+bind('sharpSlider','sharpVal',2);
 bind('haloSlider','haloVal',2);
-bind('coreSlider','coreVal',1);
+bind('pointIntSlider','pointIntVal',2);
+bind('pointThreshSlider','pointThreshVal',1);
+bind('pointSizeSlider','pointSizeVal',1);
+
+loadLayer(currentLayer);
 </script>
 </body>
 </html>
