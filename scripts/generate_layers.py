@@ -27,6 +27,20 @@ GAMMA = OMEGA_M * H
 
 N = 512  # résolution commune à tous les layers
 
+# Marge de sécurité : les textures sont générées avec une étendue physique
+# plus grande que leur frontière "logique" (utilisée pour le poids des layers
+# et les labels), pour permettre un recadrage RECTANGULAIRE (au ratio de
+# l'écran, portrait ou paysage) sans jamais dépasser les bords de l'image,
+# même au zoom maximal. 1.5 couvre confortablement un ratio d'écran jusqu'à
+# 1.5:1 (la plupart des tablettes/ordinateurs) ; les téléphones très
+# allongés (~2:1 en portrait) peuvent garder un très léger letterboxing
+# uniquement au zoom maximal absolu.
+MARGIN_FACTOR = 1.5
+
+def box_mpc(max_mpc):
+    """Étendue physique réellement générée (avec marge), en Mpc, côté total."""
+    return 2 * max_mpc * MARGIN_FACTOR
+
 # (clé, demi-largeur en Mpc comobiles, seed) — de la plus grande à la plus petite échelle.
 # "l4b" est un palier technique intermédiaire (pas un 6e layer scientifique) ajouté
 # uniquement pour que le ratio d'échelle entre deux textures consécutives reste
@@ -136,7 +150,7 @@ def build_structured_anchor_field(catalog, max_mpc, n):
     HALO_SCALE = 0.12     # tres reduit par rapport au rendu JS (0.85) : evite la saturation
     CORE_SCALE = 0.35     # idem (JS: 2.5)
 
-    pixel_size_mpc = (2 * max_mpc) / n
+    pixel_size_mpc = box_mpc(max_mpc) / n
     core_sigma_mpc = pixel_size_mpc * 1.3
     yy, xx = np.indices((n, n))
     cx, cy = n / 2, n / 2
@@ -172,15 +186,15 @@ def main():
 
     for spec in LAYER_SPECS:
         if prev_field is None:
-            field = generate_raw_field(N, 2 * spec["max_mpc"], spec["seed"])
+            field = generate_raw_field(N, box_mpc(spec["max_mpc"]), spec["seed"])
             field = normalize_variance(field)
         else:
             coarse_trend = crop_and_upsample(
                 prev_field, prev_spec["max_mpc"], spec["max_mpc"], N
             )
-            k_transition = np.pi * N / (2 * prev_spec["max_mpc"])
+            k_transition = np.pi * N / box_mpc(prev_spec["max_mpc"])
             detail = generate_raw_field(
-                N, 2 * spec["max_mpc"], spec["seed"], highpass_k=k_transition
+                N, box_mpc(spec["max_mpc"]), spec["seed"], highpass_k=k_transition
             )
             field = normalize_variance(coarse_trend) * 0.6 + normalize_variance(detail) * 0.9
 
