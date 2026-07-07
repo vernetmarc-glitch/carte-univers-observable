@@ -109,7 +109,12 @@ export default function RealGalaxiesLayer({ halfWidthMpc, opacity, style, width,
           opacityMode: 'combined' as OpacityMode,
         }))
         .filter((g) => g.slug !== '')
-      const all = [...real, MILKYWAY_ENTRY]
+      // Voie lactée D'ABORD (dessous) : son halo ne doit jamais recouvrir
+      // visuellement une galaxie plus proche dessinée après — cf.
+      // diagnostic du 7 juillet (Naine du Sagittaire, à seulement 0.024 Mpc,
+      // semblait disparaître derrière le halo de la Voie lactée dessiné
+      // par-dessus).
+      const all = [MILKYWAY_ENTRY, ...real]
       galaxiesRef.current = all
       await Promise.all(
         all.map(

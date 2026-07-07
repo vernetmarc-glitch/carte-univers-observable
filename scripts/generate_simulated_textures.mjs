@@ -278,6 +278,19 @@ async function generateMilkyWay() {
   // --- Sprite pour RealGalaxiesLayer (même logique que generateRealGalaxySprite,
   // mais à partir des VRAIES étoiles de GalaxyModel plutôt que du générateur
   // de morphologie approximatif utilisé pour les galaxies lointaines).
+  //
+  // Halo DÉDIÉ, plus resserré que HALO_SIGMA_FACTOR/HALO_AMPLITUDE (7
+  // juillet) : la Naine du Sagittaire est à seulement 0.024 Mpc de la Voie
+  // lactée (la plus proche des 8 galaxies réelles) — avec le halo standard
+  // (sigma = 0.75x rayon), le halo restait à ~78% d'intensité à 0.016 Mpc et
+  // ne redescendait vers 0 qu'à ~0.021 Mpc, empiétant presque sur sa
+  // position et donnant l'impression que la Voie lactée "grossissait" et
+  // que Sagittaire disparaissait derrière. HALO_SIGMA_FACTOR_MW=0.35 place
+  // le halo bien en retrait (3-sigma ~0.017 Mpc, sous les 0.024 Mpc de
+  // marge) tout en gardant un léger effet vaporeux autour du disque.
+  const HALO_SIGMA_FACTOR_MW = 0.35
+  const HALO_AMPLITUDE_MW = 0.08
+
   const mwRadiusMpc = GalaxyModel.MW_R / LY_PER_MPC
   const N2 = 320
   const halfWidthMpc2 = mwRadiusMpc * SPRITE_MARGIN
@@ -291,7 +304,7 @@ async function generateMilkyWay() {
     const sigmaMpc = (Math.max(star.sz * 0.55, 0.12) * (GalaxyModel.MW_R / 1600)) / LY_PER_MPC
     splatGaussian(field2, N2, pxPerMpc2, cx2, cy2, gxMpc, gyMpc, sigmaMpc, 0.6, 0.18 + star.b * 0.55)
   }
-  splatGaussian(field2, N2, pxPerMpc2, cx2, cy2, 0, 0, mwRadiusMpc * HALO_SIGMA_FACTOR, 1, HALO_AMPLITUDE)
+  splatGaussian(field2, N2, pxPerMpc2, cx2, cy2, 0, 0, mwRadiusMpc * HALO_SIGMA_FACTOR_MW, 1, HALO_AMPLITUDE_MW)
   tonemapAndSave(field2, N2, new URL('density_realgal_milkyway.png', OUT_DIR), 1.0)
 
   return { maxMpc: HALF_LY / LY_PER_MPC, mwRadiusMpc } // maxMpc nominal -> DensityLayer.tsx, mwRadiusMpc -> RealGalaxiesLayer.tsx
