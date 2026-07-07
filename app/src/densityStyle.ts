@@ -68,6 +68,21 @@ export const DENSITY_STYLE_PARAMS_BY_LAYER: Partial<Record<string, DensityStyleP
     pointThreshold: 100,
     pointSize: 0,
   },
+  // Calibré le 7 juillet via app/public/l1b-anchor-test.html — l1b intègre
+  // désormais du bruit "nuages interstellaires" + un flou d'ensemble
+  // (cf. generate_layers.py), c'est un vrai champ diffus comme les autres
+  // layers de densité, donc le halo/points par défaut s'applique (contraste
+  // un peu plus doux que le défaut 0.75).
+  l1b: {
+    gamma: 0.56,
+    soften: 0,
+    sharpen: 0,
+    sharpenRadius: 2.5,
+    halo: 0.1,
+    pointIntensity: 0.6,
+    pointThreshold: 82,
+    pointSize: 1.5,
+  },
   // Calibré le 6 juillet via glow-test.html.
   l2: {
     gamma: 0.85,

@@ -17,7 +17,7 @@ lui être indépendant — exactement l'exigence d'héritage du projet.
 
 import numpy as np
 from PIL import Image
-from scipy.ndimage import zoom as ndi_zoom
+from scipy.ndimage import zoom as ndi_zoom, gaussian_filter
 from generate_local_group_catalog import build_catalog
 from local_group_style import (
     REAL_GALAXY_HALO_SIGMA_MPC,
@@ -166,7 +166,38 @@ def export_layer_png(log_density, vmin, vmax, path):
     Image.fromarray(img_data, mode="L").save(path)
 
 
-def build_structured_anchor_field(catalog, max_mpc, n, size_multiplier=2.2):
+def value_noise_field(n, grid_size, seed):
+    """Bruit de valeur (grille aléatoire grossière + interpolation smoothstep),
+    identique en esprit à valueNoiseField() dans
+    app/public/l1b-anchor-test.html — utilisé pour les "nuages interstellaires"
+    entre les galaxies réelles sur l1b (cf. apply_local_group_anchor).
+    Volontairement différent du champ gaussien à spectre BBKS des autres
+    layers : ce n'est pas de la structure cosmologique, juste une texture de
+    fond plausible entre des objets connus.
+    """
+    rng = np.random.default_rng(seed)
+    g = max(2, round(grid_size))
+    grid = rng.random((g + 1, g + 1)) * 2 - 1
+
+    ys = np.linspace(0, g, n, endpoint=False)
+    xs = np.linspace(0, g, n, endpoint=False)
+    gy0 = np.clip(np.floor(ys).astype(int), 0, g - 1)
+    gx0 = np.clip(np.floor(xs).astype(int), 0, g - 1)
+    fy = ys - np.floor(ys)
+    fx = xs - np.floor(xs)
+    sy = fy * fy * (3 - 2 * fy)
+    sx = fx * fx * (3 - 2 * fx)
+
+    v00 = grid[gy0[:, None], gx0[None, :]]
+    v10 = grid[gy0[:, None], gx0[None, :] + 1]
+    v01 = grid[gy0[:, None] + 1, gx0[None, :]]
+    v11 = grid[gy0[:, None] + 1, gx0[None, :] + 1]
+    a = v00 + (v10 - v00) * sx[None, :]
+    b = v01 + (v11 - v01) * sx[None, :]
+    return a + (b - a) * sy[:, None]
+
+
+def build_structured_anchor_field(catalog, max_mpc, n, size_multiplier=2.2, bump_amplitude_factor=1.0):
     """Construit un champ 2D avec, pour chaque galaxie du catalogue, un halo
     gaussien large + un point central compact.
 
@@ -189,6 +220,9 @@ def build_structured_anchor_field(catalog, max_mpc, n, size_multiplier=2.2):
     visible). Une valeur plus grande (cf. l1b en mode "suppression globale",
     7 juillet) donne des taches plus larges et douces, nécessaire quand plus
     aucun bruit ambiant ne reste autour pour donner une impression de volume.
+
+    `bump_amplitude_factor` : calibré via app/public/l1b-anchor-test.html
+    (7 juillet) — multiplicateur direct sur l'amplitude des pics.
     """
     AMPLITUDE = GALAXY_BRIGHTNESS_AMPLITUDE
     HALO_SCALE = 0.12
@@ -207,13 +241,26 @@ def build_structured_anchor_field(catalog, max_mpc, n, size_multiplier=2.2):
         angle_rad = np.radians(gal["angleDeg"])
         gx = np.cos(angle_rad) * gal["distanceMpc"]
         gy = np.sin(angle_rad) * gal["distanceMpc"]
-        peak_amp = np.log(1 + gal["brightness"] * AMPLITUDE)
+        peak_amp = np.log(1 + gal["brightness"] * AMPLITUDE) * bump_amplitude_factor
         field += HALO_SCALE * peak_amp * np.exp(-((x_mpc - gx) ** 2 + (y_mpc - gy) ** 2) / (2 * SIZE_MPC ** 2))
         field += CORE_SCALE * peak_amp * np.exp(-((x_mpc - gx) ** 2 + (y_mpc - gy) ** 2) / (2 * core_sigma_mpc ** 2))
     return field, x_mpc, y_mpc, SIZE_MPC, AMPLITUDE
 
 
-def apply_local_group_anchor(field, max_mpc, n, catalog, strength=1.0, global_suppression=1.0, size_multiplier=2.2, real_only=True):
+def apply_local_group_anchor(
+    field,
+    max_mpc,
+    n,
+    catalog,
+    strength=1.0,
+    global_suppression=1.0,
+    size_multiplier=2.2,
+    real_only=True,
+    cloud_amplitude=0.0,
+    cloud_scale=18,
+    extra_blur_px=0.0,
+    bump_amplitude_factor=1.0,
+):
     """Ajoute les bosses de densité du catalogue PAR-DESSUS le champ aléatoire
     existant, avec un traitement RENFORCÉ pour les galaxies RÉELLES :
 
@@ -262,17 +309,29 @@ def apply_local_group_anchor(field, max_mpc, n, catalog, strength=1.0, global_su
     (utilisé pour l1b) applique le même traitement complet à l'ensemble du
     catalogue, pour que l1b reflète fidèlement tout ce qui est visible en
     dessous, pas seulement les galaxies nommées.
+
+    `cloud_amplitude`/`cloud_scale`/`extra_blur_px`/`bump_amplitude_factor` :
+    ajoutés le 7 juillet, calibrés visuellement via
+    app/public/l1b-anchor-test.html suite au retour "trop net/rond,
+    voudrais des halos plus diffus et un peu de bruit intermédiaire façon
+    nuages interstellaires". `cloud_amplitude`/`cloud_scale` ajoutent un
+    bruit de valeur doux (cf. value_noise_field) ENTRE les galaxies, en plus
+    (pas à la place) de global_suppression — contrairement au bruit
+    cosmique standard, ce n'est pas de la structure à grande échelle, juste
+    une texture de fond plausible. `extra_blur_px` adoucit l'ensemble du
+    champ (halos ET nuages) après coup.
     """
     structured_target, x_mpc, y_mpc, size_mpc, amplitude = build_structured_anchor_field(
-        catalog, max_mpc, n, size_multiplier=size_multiplier
+        catalog, max_mpc, n, size_multiplier=size_multiplier, bump_amplitude_factor=bump_amplitude_factor
     )
-    field = field * global_suppression + structured_target * strength
+    cloud = value_noise_field(n, cloud_scale, seed=2002) if cloud_amplitude > 0 else 0.0
+    field = field * global_suppression + cloud * cloud_amplitude + structured_target * strength
 
     suppression_mask = np.ones((n, n))
     dominant_bumps = np.zeros((n, n))
     SUPPRESSION_RADIUS_MPC = size_mpc * REAL_GALAXY_SUPPRESSION_RADIUS_FACTOR
     noise_suppression = 1 - (1 - REAL_GALAXY_NOISE_SUPPRESSION) * strength
-    dominant_factor = REAL_GALAXY_DOMINANT_AMPLITUDE_FACTOR * strength
+    dominant_factor = REAL_GALAXY_DOMINANT_AMPLITUDE_FACTOR * strength * bump_amplitude_factor
 
     for gal in catalog:
         if real_only and not gal["isReal"]:
@@ -290,7 +349,10 @@ def apply_local_group_anchor(field, max_mpc, n, catalog, strength=1.0, global_su
         peak_amp = np.log(1 + gal["brightness"] * amplitude)
         dominant_bumps += dominant_factor * peak_amp * np.exp(-dist2 / (2 * size_mpc ** 2))
 
-    return field * suppression_mask + dominant_bumps
+    result = field * suppression_mask + dominant_bumps
+    if extra_blur_px > 0.3:
+        result = gaussian_filter(result, sigma=extra_blur_px)
+    return result
 
 
 def main():
@@ -332,15 +394,22 @@ def main():
             # (global_suppression bas), pas seulement localement autour de
             # chaque galaxie — pour que seules les galaxies du catalogue
             # ressortent comme pics de densité, sans taches intermédiaires
-            # ne correspondant à rien de réel. size_multiplier plus grand
-            # (4.0 au lieu du plancher minimal 2.2) pour que ces pics
-            # restent des taches douces et bien visibles plutôt que des
-            # points durs isolés sur un fond presque noir. real_only=False
-            # (7 juillet également) : le layer Groupe Local juste en dessous
-            # montre TOUT le catalogue (8 galaxies réelles + ~90 galaxies de
-            # champ procédurales, cf. generate_local_group_catalog.py), pas
-            # seulement les 8 nommées — l1b doit refléter l'ensemble, pas
-            # juste un sous-ensemble.
+            # ne correspondant à rien de réel. real_only=False : le layer
+            # Groupe Local juste en dessous montre TOUT le catalogue
+            # (8 galaxies réelles + ~90 galaxies de champ procédurales, cf.
+            # generate_local_group_catalog.py), pas seulement les 8
+            # nommées — l1b doit refléter l'ensemble, pas juste un
+            # sous-ensemble.
+            #
+            # Valeurs calibrées visuellement le 7 juillet via
+            # app/public/l1b-anchor-test.html (retour : "trop net/rond,
+            # voudrais des halos plus diffus et un peu de bruit
+            # intermédiaire façon nuages interstellaires") — remonter la
+            # suppression (0.08 -> 0.47) laisse réapparaître un peu du bruit
+            # cosmique ambiant, cloud_amplitude/cloud_scale ajoutent en plus
+            # un bruit de texture indépendant, extra_blur_px adoucit
+            # l'ensemble, size_multiplier et bump_amplitude_factor élargissent
+            # et éclaircissent les pics pour compenser le fond moins sombre.
             catalog = build_catalog()
             field = apply_local_group_anchor(
                 field,
@@ -348,9 +417,13 @@ def main():
                 N,
                 catalog,
                 strength=1.0,
-                global_suppression=0.08,
-                size_multiplier=4.0,
+                global_suppression=0.47,
+                size_multiplier=9.2,
                 real_only=False,
+                cloud_amplitude=0.64,
+                cloud_scale=18,
+                extra_blur_px=2.0,
+                bump_amplitude_factor=1.25,
             )
         elif spec["key"] == "l2":
             # "Trace" seulement (cf. docstring apply_local_group_anchor) :
