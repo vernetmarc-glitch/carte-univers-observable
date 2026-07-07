@@ -400,15 +400,58 @@ def main():
                 diffuse=False,
             )
         elif spec["key"] == "l2":
-            # "Trace" seulement (cf. docstring apply_local_group_anchor) :
-            # l2 est le layer suivant dans l'ordre du zoom (l1b -> l2), pas
-            # un enfant de l1b dans la hiérarchie d'héritage (c'est l'inverse :
-            # l1b hérite DE l2, cf. LAYER_SPECS) — sans cet appel explicite,
-            # l2 n'a strictement aucune connaissance des positions réelles et
-            # les 6-8 pics disparaissent net à la frontière l1b/l2 (diagnostic
+            # "Trace" (cf. docstring apply_local_group_anchor) : l2 est le
+            # layer suivant dans l'ordre du zoom (l1b -> l2), pas un enfant
+            # de l1b dans la hiérarchie d'héritage (c'est l'inverse : l1b
+            # hérite DE l2, cf. LAYER_SPECS) — sans cet appel explicite, l2
+            # n'a strictement aucune connaissance des positions réelles et
+            # les pics disparaissent net à la frontière l1b/l2 (diagnostic
             # du 6 juillet).
+            #
+            # 7 juillet, 4e itération (portée décidée avec l'utilisateur
+            # après discussion sur le sens de l'héritage, cf. doc §4.4 —
+            # l'héritage du champ ALÉATOIRE reste bien grand->petit, on ne
+            # fait ici que propager la contrainte LOCALE du Groupe Local,
+            # de façon volontairement bornée à l1b/l2/l2b) : real_only=False
+            # et diffuse=True pour rester cohérent avec le traitement de
+            # l1b (catalogue complet, look vaporeux) plutôt que l'ancien
+            # traitement "8 galaxies, pic dur" d'origine.
             catalog = build_catalog()
-            field = apply_local_group_anchor(field, spec["max_mpc"], N, catalog, strength=0.4)
+            field = apply_local_group_anchor(
+                field,
+                spec["max_mpc"],
+                N,
+                catalog,
+                strength=0.4,
+                real_only=False,
+                diffuse=True,
+                size_multiplier=3.0,
+                bump_amplitude_factor=0.5,
+            )
+        elif spec["key"] == "l2b":
+            # 7 juillet, 4e itération : trace encore plus atténuée qu'l2
+            # (strength=0.15) pour que la transition l2 -> l2b ne fasse pas
+            # disparaître net les mêmes 98 positions (même défaut que celui
+            # corrigé entre l1b et l2, cf. diagnostic du 6 juillet).
+            # DÉLIBÉRÉMENT LA DERNIÈRE ÉTAPE de cette propagation : au-delà
+            # de l2b (~67 Mpc), le Groupe Local doit redevenir
+            # statistiquement invisible — rien ne nous distingue à cette
+            # échelle (principe cosmologique, cf. doc §4.1 ligne 5), y
+            # ajouter une trace créerait un artefact fixe au centre de la
+            # carte à des échelles où il n'a scientifiquement pas lieu
+            # d'être.
+            catalog = build_catalog()
+            field = apply_local_group_anchor(
+                field,
+                spec["max_mpc"],
+                N,
+                catalog,
+                strength=0.15,
+                real_only=False,
+                diffuse=True,
+                size_multiplier=3.0,
+                bump_amplitude_factor=0.5,
+            )
 
         fields[spec["key"]] = field
 
