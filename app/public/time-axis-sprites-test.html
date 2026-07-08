@@ -1,0 +1,301 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Dissolution des 9 sprites — couleur de convergence partagée</title>
+<style>
+  html, body { margin: 0; padding: 0; background: #05050a; height: 100%; width: 100%; font-family: system-ui, sans-serif; }
+  .layout { display: flex; flex-wrap: wrap; }
+  .panel {
+    background: rgba(15,15,22,0.92); border: 1px solid rgba(255,255,255,0.12); border-radius: 8px;
+    margin: 10px; padding: 12px; color: #ccc; flex: 1 1 300px; max-width: 380px;
+  }
+  .ctrl { margin-bottom: 10px; }
+  .ctrl label { font-size: 11px; color: #bbb; display: flex; justify-content: space-between; margin-bottom: 2px; }
+  .ctrl label span.val { color: #7fd1ff; font-family: monospace; }
+  .ctrl input[type=range] { width: 100%; }
+  .hint { font-size: 10px; color: #888; margin-top: 2px; line-height: 1.4; }
+  h2 { color: #eee; font-size: 15px; margin: 14px 0 4px 10px; font-weight: 500; }
+  .canvasWrap { flex: 2 1 480px; padding: 10px; }
+  canvas { width: 100%; aspect-ratio: 1; background: #000; border-radius: 8px; display: block; }
+  .meta { font-size: 10px; color: #888; text-align: center; margin-top: 6px; font-family: monospace; }
+  .galBtns { display: flex; flex-wrap: wrap; gap: 4px; margin-bottom: 10px; }
+  .galBtns button { font-size: 10px; padding: 4px 7px; background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.15); color: #ccc; border-radius: 5px; cursor: pointer; }
+  .galBtns button.active { background: rgba(90,169,230,0.3); border-color: #5aa9e6; color: #fff; }
+  .swatch { display: inline-block; width: 14px; height: 14px; border-radius: 3px; vertical-align: middle; margin-right: 6px; border: 1px solid rgba(255,255,255,0.3); }
+</style>
+</head>
+<body>
+<h2>🎨 Dissolution des 9 sprites — couleur de convergence partagée</h2>
+<div class="layout">
+  <div class="panel">
+    <h2 style="margin-left:0">Galaxie</h2>
+    <div class="galBtns" id="galBtns"></div>
+
+    <div class="ctrl">
+      <label>Position temporelle — a(t) <span class="val" id="aVal"></span></label>
+      <input type="range" id="aSlider" min="-3.5" max="0" step="0.002" value="0" />
+    </div>
+    <div class="ctrl">
+      <label>Taille du point (px) <span class="val" id="sizeVal"></span></label>
+      <input type="range" id="sizeSlider" min="0.5" max="4" step="0.1" value="1.6" />
+    </div>
+    <div class="ctrl">
+      <label>Croissance du halo (max ×) <span class="val" id="haloGrowthVal"></span></label>
+      <input type="range" id="haloGrowthSlider" min="1" max="15" step="0.5" value="7" />
+    </div>
+    <div class="ctrl">
+      <label>Flou de fusion (px max) <span class="val" id="blurMaxVal"></span></label>
+      <input type="range" id="blurMaxSlider" min="0" max="40" step="1" value="18" />
+    </div>
+
+    <h2 style="margin-left:0">Couleur de convergence — PARTAGÉE, pas par sprite</h2>
+    <div class="hint">
+      <span class="swatch" id="swatchToday" style="background:#05050a"></span>fond actuel de l'app (a=1)<br/>
+      <span class="swatch" id="swatchNow"></span>couleur cible à l'a(t) courant<br/>
+      <span class="swatch" style="background:#fff3d6"></span>teinte la plus claire de la palette Astro (recombinaison)
+    </div>
+    <div class="hint">
+      universeGlowColor(a) — UNE seule fonction, utilisée par les 9 sprites ET, à terme, par les layers de densité.
+      Quel que soit le sprite affiché, sa couleur une fois uniforme doit être EXACTEMENT celle du swatch du milieu,
+      pas une valeur calculée localement.
+    </div>
+  </div>
+
+  <div class="canvasWrap">
+    <canvas id="canvas" width="900" height="900"></canvas>
+    <div class="meta" id="meta"></div>
+  </div>
+</div>
+
+<script>
+const CANVAS_N = 900
+const canvas = document.getElementById('canvas')
+const ctx = canvas.getContext('2d')
+
+const ASTRO_STOPS = [
+  [0,0,0], [0x17,0x0a,0x05], [0x4a,0x1f,0x0a], [0xa8,0x48,0x0f], [0xe8,0xa1,0x3a], [0xff,0xf3,0xd6]
+]
+function colorForValue(t) {
+  t = Math.min(Math.max(t,0),1)
+  const n = ASTRO_STOPS.length - 1
+  const idx = Math.min(Math.floor(t*n), n-1)
+  const frac = t*n - idx
+  const a = ASTRO_STOPS[idx], b = ASTRO_STOPS[idx+1]
+  return [a[0]+(b[0]-a[0])*frac, a[1]+(b[1]-a[1])*frac, a[2]+(b[2]-a[2])*frac]
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// COULEUR DE CONVERGENCE PARTAGÉE — une seule fonction, appelée par tous
+// les sprites (et, à terme, par les layers de densité). N'importe quel
+// composant qui doit représenter "l'univers uniforme à l'instant a" doit
+// utiliser CETTE fonction, jamais une valeur calculée localement.
+// bg = fond actuel de l'app (#05050a, cf. UniverseMap.tsx). bright = teinte
+// la plus claire de la palette 'astro' (#fff3d6, cf. colormaps.ts) — donc
+// cohérent avec l'embrasement déjà utilisé partout ailleurs dans le projet.
+// ─────────────────────────────────────────────────────────────────────────
+function universeGlowColor(a, exp = 2.2) {
+  const t = Math.pow(Math.min(Math.max(1 - a, 0), 1), exp)
+  const bg = [5, 5, 10]
+  const bright = [255, 243, 214]
+  return [0,1,2].map(i => Math.round(bg[i] + (bright[i] - bg[i]) * t))
+}
+
+function mulberry32(seed) {
+  return function () {
+    seed |= 0; seed = (seed + 0x6d2b79f5) | 0
+    let t = Math.imul(seed ^ (seed >>> 15), 1 | seed)
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296
+  }
+}
+function valueNoiseField(n, gridSize, seed) {
+  const rng = mulberry32(seed)
+  const g = Math.max(2, Math.round(gridSize))
+  const grid = new Float32Array((g + 1) * (g + 1))
+  for (let i = 0; i < grid.length; i++) grid[i] = rng() * 2 - 1
+  const out = new Float32Array(n * n)
+  for (let y = 0; y < n; y++) {
+    const gy = (y / n) * g, gy0 = Math.min(Math.floor(gy), g - 1), fy = gy - Math.floor(gy)
+    const sy = fy * fy * (3 - 2 * fy)
+    for (let x = 0; x < n; x++) {
+      const gx = (x / n) * g, gx0 = Math.min(Math.floor(gx), g - 1), fx = gx - Math.floor(gx)
+      const sx = fx * fx * (3 - 2 * fx)
+      const v00 = grid[gy0*(g+1)+gx0], v10 = grid[gy0*(g+1)+gx0+1]
+      const v01 = grid[(gy0+1)*(g+1)+gx0], v11 = grid[(gy0+1)*(g+1)+gx0+1]
+      const a = v00 + (v10-v00)*sx, b = v01 + (v11-v01)*sx
+      out[y*n+x] = a + (b-a)*sy
+    }
+  }
+  return out
+}
+function multiOctaveCloud(n, seed, baseGrid) {
+  const oct1 = valueNoiseField(n, baseGrid, seed)
+  const oct2 = valueNoiseField(n, baseGrid * 2.4, seed + 1)
+  const oct3 = valueNoiseField(n, baseGrid * 5.5, seed + 2)
+  const out = new Float32Array(n * n)
+  for (let i = 0; i < out.length; i++) out[i] = (oct1[i]*0.55 + oct2[i]*0.3 + oct3[i]*0.15 + 1) / 2
+  return out
+}
+const filamentNoiseCache = multiOctaveCloud(CANVAS_N, 5151, 8)
+
+const GALAXIES = [
+  { slug: 'milkyway', label: 'Voie lactée' },
+  { slug: 'andromede', label: 'Andromède' },
+  { slug: 'triangulum', label: 'Triangulum' },
+  { slug: 'lmc', label: 'Grand Nuage Magellan' },
+  { slug: 'smc', label: 'Petit Nuage Magellan' },
+  { slug: 'sagittaire', label: 'Naine Sagittaire' },
+  { slug: 'ngc6822', label: 'NGC 6822' },
+  { slug: 'ic10', label: 'IC 10' },
+  { slug: 'leo1', label: 'Leo I' },
+]
+let currentSlug = 'milkyway'
+let allSims = null
+
+const galBtnsEl = document.getElementById('galBtns')
+GALAXIES.forEach(g => {
+  const btn = document.createElement('button')
+  btn.textContent = g.label
+  btn.dataset.slug = g.slug
+  if (g.slug === currentSlug) btn.classList.add('active')
+  btn.onclick = () => {
+    currentSlug = g.slug
+    document.querySelectorAll('#galBtns button').forEach(b => b.classList.toggle('active', b.dataset.slug === currentSlug))
+    renderAll()
+  }
+  galBtnsEl.appendChild(btn)
+})
+
+fetch('data/dissolution_keyframes.json').then(r => r.json()).then(data => {
+  allSims = data
+  renderAll()
+})
+
+function getParams() {
+  return {
+    a: Math.pow(10, parseFloat(document.getElementById('aSlider').value)),
+    pointSize: parseFloat(document.getElementById('sizeSlider').value),
+    haloGrowth: parseFloat(document.getElementById('haloGrowthSlider').value),
+    blurMax: parseFloat(document.getElementById('blurMaxSlider').value),
+  }
+}
+
+function dissolveProgress(a) {
+  // Meme forme que le prototype precedent : 0 aujourd'hui -> 1 loin dans le passe.
+  const t = Math.min(Math.max(1 - a, 0), 1)
+  return Math.pow(t, 1.4)
+}
+
+function interpolateFrame(sim, t) {
+  const frames = sim.frames
+  const nF = frames.length
+  const pos_t = t * (nF - 1)
+  const i0 = Math.min(Math.floor(pos_t), nF - 2)
+  const i1 = i0 + 1
+  const frac = pos_t - i0
+  const p0 = frames[i0].positions, p1 = frames[i1].positions
+  const out = new Float64Array(p0.length * 2)
+  for (let i = 0; i < p0.length; i++) {
+    out[i*2] = p0[i][0] + (p1[i][0] - p0[i][0]) * frac
+    out[i*2+1] = p0[i][1] + (p1[i][1] - p0[i][1]) * frac
+  }
+  return out
+}
+
+function render() {
+  if (!allSims) return
+  const sim = allSims[currentSlug]
+  const p = getParams()
+  const progress = dissolveProgress(p.a)
+  const positions = interpolateFrame(sim, progress)
+  const meta = sim.particleMeta
+
+  const lastPos = sim.frames[sim.frames.length - 1].positions
+  let maxExtent = 0
+  for (const [x,y] of lastPos) maxExtent = Math.max(maxExtent, Math.abs(x), Math.abs(y))
+  const halfWidthNorm = maxExtent * 1.15
+  const pxPerUnit = CANVAS_N / (2 * halfWidthNorm)
+  const cx = CANVAS_N / 2, cy = CANVAS_N / 2
+
+  const sigmaPx = Math.max(p.pointSize * (1 + progress * (p.haloGrowth - 1)), 0.5)
+  const r = Math.ceil(sigmaPx * 3.2)
+  const inv2s2 = 1 / (2 * sigmaPx * sigmaPx)
+
+  const field = new Float32Array(CANVAS_N * CANVAS_N)
+  for (let i = 0; i < meta.length; i++) {
+    const px = cx + positions[i*2] * pxPerUnit
+    const py = cy + positions[i*2+1] * pxPerUnit
+    if (px < -r || px > CANVAS_N+r || py < -r || py > CANVAS_N+r) continue
+    const amp = 0.18 + meta[i].b * 0.55
+    const x0 = Math.max(0, Math.floor(px-r)), x1 = Math.min(CANVAS_N-1, Math.ceil(px+r))
+    const y0 = Math.max(0, Math.floor(py-r)), y1 = Math.min(CANVAS_N-1, Math.ceil(py+r))
+    for (let y=y0; y<=y1; y++) {
+      const dy2 = (y-py)*(y-py)
+      for (let x=x0; x<=x1; x++) {
+        const dx = x-px
+        field[y*CANVAS_N+x] += amp * Math.exp(-(dx*dx+dy2)*inv2s2)
+      }
+    }
+  }
+
+  const blurPx = Math.pow(progress, 1.5) * p.blurMax
+  let toneField
+  if (blurPx > 0.3) {
+    const tmp = document.createElement('canvas')
+    tmp.width = CANVAS_N; tmp.height = CANVAS_N
+    const tctx = tmp.getContext('2d')
+    const grayImg = tctx.createImageData(CANVAS_N, CANVAS_N)
+    for (let i = 0; i < field.length; i++) {
+      const byte = Math.min(255, Math.round((1 - Math.exp(-field[i])) * 255))
+      grayImg.data[i*4]=byte; grayImg.data[i*4+1]=byte; grayImg.data[i*4+2]=byte; grayImg.data[i*4+3]=255
+    }
+    tctx.putImageData(grayImg, 0, 0)
+    const blurred = document.createElement('canvas')
+    blurred.width = CANVAS_N; blurred.height = CANVAS_N
+    const bctx = blurred.getContext('2d')
+    bctx.filter = `blur(${blurPx.toFixed(1)}px)`
+    bctx.drawImage(tmp, 0, 0)
+    const bd = bctx.getImageData(0, 0, CANVAS_N, CANVAS_N).data
+    toneField = new Float32Array(CANVAS_N * CANVAS_N)
+    for (let i = 0; i < toneField.length; i++) toneField[i] = bd[i*4] / 255
+  } else {
+    toneField = new Float32Array(CANVAS_N * CANVAS_N)
+    for (let i = 0; i < field.length; i++) toneField[i] = 1 - Math.exp(-field[i])
+  }
+
+  const filIntensity = 0.8 * 4 * progress * (1 - progress)
+  const uniformMix = Math.pow(progress, 3)
+  const target = universeGlowColor(p.a) // <-- LA fonction partagee
+
+  const out = ctx.createImageData(CANVAS_N, CANVAS_N)
+  for (let i = 0; i < toneField.length; i++) {
+    let v = toneField[i] * (1 + (filamentNoiseCache[i] - 0.5) * 2 * filIntensity)
+    v = Math.min(Math.max(v, 0), 1)
+    const [rr,gg,bb] = colorForValue(v)
+    out.data[i*4]   = Math.round(rr * (1-uniformMix) + target[0] * uniformMix)
+    out.data[i*4+1] = Math.round(gg * (1-uniformMix) + target[1] * uniformMix)
+    out.data[i*4+2] = Math.round(bb * (1-uniformMix) + target[2] * uniformMix)
+    out.data[i*4+3] = 255
+  }
+  ctx.putImageData(out, 0, 0)
+
+  document.getElementById('meta').textContent =
+    `${currentSlug} · progression dissolution ${(progress*100).toFixed(0)}% · mélange uniforme ${(uniformMix*100).toFixed(0)}% · cible = rgb(${target.join(',')})`
+  document.getElementById('swatchNow').style.background = `rgb(${target.join(',')})`
+}
+
+function renderAll() {
+  const p = getParams()
+  document.getElementById('aVal').textContent = p.a.toExponential(3)
+  document.getElementById('sizeVal').textContent = p.pointSize.toFixed(1)
+  document.getElementById('haloGrowthVal').textContent = p.haloGrowth.toFixed(1)
+  document.getElementById('blurMaxVal').textContent = p.blurMax.toFixed(0)
+  render()
+}
+;['aSlider','sizeSlider','haloGrowthSlider','blurMaxSlider'].forEach(id => document.getElementById(id).addEventListener('input', renderAll))
+renderAll()
+</script>
+</body>
+</html>
