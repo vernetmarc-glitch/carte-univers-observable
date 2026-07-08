@@ -1,0 +1,340 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Animation complète — Groupe Local, Big Bang → aujourd'hui</title>
+<style>
+  html, body { margin: 0; padding: 0; background: #05050a; height: 100%; width: 100%; font-family: system-ui, sans-serif; }
+  .layout { display: flex; flex-wrap: wrap; }
+  .panel {
+    background: rgba(15,15,22,0.92); border: 1px solid rgba(255,255,255,0.12); border-radius: 8px;
+    margin: 10px; padding: 12px; color: #ccc; flex: 1 1 300px; max-width: 380px;
+  }
+  .ctrl { margin-bottom: 10px; }
+  .ctrl label { font-size: 11px; color: #bbb; display: flex; justify-content: space-between; margin-bottom: 2px; }
+  .ctrl label span.val { color: #7fd1ff; font-family: monospace; }
+  .ctrl input[type=range] { width: 100%; }
+  .hint { font-size: 10px; color: #888; margin-top: 2px; line-height: 1.4; }
+  h2 { color: #eee; font-size: 15px; margin: 14px 0 4px 10px; font-weight: 500; }
+  .canvasWrap { flex: 2 1 480px; padding: 10px; }
+  canvas { width: 100%; aspect-ratio: 1; background: #000; border-radius: 8px; display: block; }
+  .meta { font-size: 10px; color: #888; text-align: center; margin-top: 6px; font-family: monospace; }
+  .playRow { display: flex; gap: 8px; margin-bottom: 12px; }
+  .playRow button {
+    flex: 1; font-size: 12px; padding: 8px; background: rgba(90,169,230,0.18); border: 1px solid #5aa9e6;
+    color: #bcdcf7; border-radius: 6px; cursor: pointer;
+  }
+  .playRow button.active { background: #5aa9e6; color: #041018; }
+</style>
+</head>
+<body>
+<h2>🌌 Scène complète du Groupe Local — Big Bang → aujourd'hui</h2>
+<div class="layout">
+  <div class="panel">
+    <div class="playRow">
+      <button id="playBtn">▶ Lecture (Big Bang → aujourd'hui)</button>
+    </div>
+    <div class="ctrl">
+      <label>Position temporelle — a(t) <span class="val" id="aVal"></span></label>
+      <input type="range" id="aSlider" min="-3.5" max="0" step="0.002" value="0" />
+    </div>
+    <div class="ctrl">
+      <label>Vitesse de lecture (s pour tout parcourir) <span class="val" id="speedVal"></span></label>
+      <input type="range" id="speedSlider" min="4" max="60" step="1" value="18" />
+    </div>
+    <div class="ctrl">
+      <label>Demi-champ affiché (Mpc) <span class="val" id="halfWidthVal"></span></label>
+      <input type="range" id="halfWidthSlider" min="0.3" max="2.5" step="0.05" value="1.0" />
+      <div class="hint">Pas de compression spatiale ici : le Groupe Local est gravitationnellement lié (cf. recherche du 8 juillet), les distances entre galaxies restent fixes quel que soit a(t) — seule chaque galaxie se dissout sur place.</div>
+    </div>
+    <div class="ctrl">
+      <label>Taille du point / halo max <span class="val" id="sizeVal"></span></label>
+      <input type="range" id="sizeSlider" min="0.5" max="3" step="0.1" value="1.3" />
+    </div>
+    <h2 style="margin-left:0">Ce que ça montre</h2>
+    <div class="hint">
+      Les 9 sprites (Voie lactée + 8 galaxies réelles), à leurs vraies positions relatives (distance/angle du
+      catalogue), chacun dissous par sa propre simulation N-corps, TOUS pilotés par le même a(t) — la cohérence
+      demandée : une seule variable de temps, tout le reste en découle. Champ composé en un seul calcul (pas 9
+      rendus indépendants superposés), donc le flou/filament/convergence vers l'uniforme se fait sur la SCÈNE
+      ENTIÈRE, pas galaxie par galaxie — cohérent avec l'idée que tout finit par se confondre à l'approche de la
+      recombinaison.
+    </div>
+    <div class="hint" id="stats"></div>
+  </div>
+
+  <div class="canvasWrap">
+    <canvas id="canvas" width="900" height="900"></canvas>
+    <div class="meta" id="meta"></div>
+  </div>
+</div>
+
+<script>
+const CANVAS_N = 900
+const canvas = document.getElementById('canvas')
+const ctx = canvas.getContext('2d')
+
+const ASTRO_STOPS = [
+  [0,0,0], [0x17,0x0a,0x05], [0x4a,0x1f,0x0a], [0xa8,0x48,0x0f], [0xe8,0xa1,0x3a], [0xff,0xf3,0xd6]
+]
+function colorForValue(t) {
+  t = Math.min(Math.max(t,0),1)
+  const n = ASTRO_STOPS.length - 1
+  const idx = Math.min(Math.floor(t*n), n-1)
+  const frac = t*n - idx
+  const a = ASTRO_STOPS[idx], b = ASTRO_STOPS[idx+1]
+  return [a[0]+(b[0]-a[0])*frac, a[1]+(b[1]-a[1])*frac, a[2]+(b[2]-a[2])*frac]
+}
+// Couleur de convergence PARTAGEE — meme fonction que time-axis-sprites-test.html.
+function universeGlowColor(a, exp = 2.2) {
+  const t = Math.pow(Math.min(Math.max(1 - a, 0), 1), exp)
+  const bg = [5, 5, 10], bright = [255, 243, 214]
+  return [0,1,2].map(i => Math.round(bg[i] + (bright[i] - bg[i]) * t))
+}
+
+function mulberry32(seed) {
+  return function () {
+    seed |= 0; seed = (seed + 0x6d2b79f5) | 0
+    let t = Math.imul(seed ^ (seed >>> 15), 1 | seed)
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296
+  }
+}
+function valueNoiseField(n, gridSize, seed) {
+  const rng = mulberry32(seed)
+  const g = Math.max(2, Math.round(gridSize))
+  const grid = new Float32Array((g + 1) * (g + 1))
+  for (let i = 0; i < grid.length; i++) grid[i] = rng() * 2 - 1
+  const out = new Float32Array(n * n)
+  for (let y = 0; y < n; y++) {
+    const gy = (y / n) * g, gy0 = Math.min(Math.floor(gy), g - 1), fy = gy - Math.floor(gy)
+    const sy = fy * fy * (3 - 2 * fy)
+    for (let x = 0; x < n; x++) {
+      const gx = (x / n) * g, gx0 = Math.min(Math.floor(gx), g - 1), fx = gx - Math.floor(gx)
+      const sx = fx * fx * (3 - 2 * fx)
+      const v00 = grid[gy0*(g+1)+gx0], v10 = grid[gy0*(g+1)+gx0+1]
+      const v01 = grid[(gy0+1)*(g+1)+gx0], v11 = grid[(gy0+1)*(g+1)+gx0+1]
+      const a = v00 + (v10-v00)*sx, b = v01 + (v11-v01)*sx
+      out[y*n+x] = a + (b-a)*sy
+    }
+  }
+  return out
+}
+function multiOctaveCloud(n, seed, baseGrid) {
+  const oct1 = valueNoiseField(n, baseGrid, seed)
+  const oct2 = valueNoiseField(n, baseGrid * 2.4, seed + 1)
+  const oct3 = valueNoiseField(n, baseGrid * 5.5, seed + 2)
+  const out = new Float32Array(n * n)
+  for (let i = 0; i < out.length; i++) out[i] = (oct1[i]*0.55 + oct2[i]*0.3 + oct3[i]*0.15 + 1) / 2
+  return out
+}
+const filamentNoiseCache = multiOctaveCloud(CANVAS_N, 5151, 8)
+
+const SLUG_BY_NAME = {
+  'Andromède (M31)': 'andromede', 'Triangulum (M33)': 'triangulum', 'Grand Nuage de Magellan': 'lmc',
+  'Petit Nuage de Magellan': 'smc', 'Naine du Sagittaire': 'sagittaire', 'NGC 6822': 'ngc6822',
+  'IC 10': 'ic10', 'Leo I': 'leo1',
+}
+
+let allSims = null
+let scene = null // [{slug, distanceMpc, angleDeg, radiusMpc}]
+
+Promise.all([
+  fetch('data/dissolution_keyframes.json').then(r => r.json()),
+  fetch('data/local_group_catalog.json').then(r => r.json()),
+]).then(([sims, catalog]) => {
+  allSims = sims
+  scene = [{ slug: 'milkyway', distanceMpc: 0, angleDeg: 0, radiusMpc: 0.01594329 }]
+  for (const gal of catalog) {
+    if (!gal.isReal) continue
+    const slug = SLUG_BY_NAME[gal.name]
+    if (!slug) continue
+    scene.push({ slug, distanceMpc: gal.distanceMpc, angleDeg: gal.angleDeg, radiusMpc: gal.radiusMpc })
+  }
+  document.getElementById('stats').textContent = `${scene.length} galaxies chargées`
+  renderAll()
+})
+
+function getParams() {
+  return {
+    a: Math.pow(10, parseFloat(document.getElementById('aSlider').value)),
+    halfWidthMpc: parseFloat(document.getElementById('halfWidthSlider').value),
+    pointSize: parseFloat(document.getElementById('sizeSlider').value),
+  }
+}
+
+function dissolveProgress(a) {
+  const t = Math.min(Math.max(1 - a, 0), 1)
+  return Math.pow(t, 1.4)
+}
+
+function interpolateFrame(sim, t) {
+  const frames = sim.frames
+  const nF = frames.length
+  const pos_t = t * (nF - 1)
+  const i0 = Math.min(Math.floor(pos_t), nF - 2)
+  const i1 = i0 + 1
+  const frac = pos_t - i0
+  const p0 = frames[i0].positions, p1 = frames[i1].positions
+  const out = new Float64Array(p0.length * 2)
+  for (let i = 0; i < p0.length; i++) {
+    out[i*2] = p0[i][0] + (p1[i][0] - p0[i][0]) * frac
+    out[i*2+1] = p0[i][1] + (p1[i][1] - p0[i][1]) * frac
+  }
+  return out
+}
+
+function render() {
+  if (!allSims || !scene) return
+  const p = getParams()
+  const progress = dissolveProgress(p.a)
+  const pxPerMpc = CANVAS_N / (2 * p.halfWidthMpc)
+  const cx = CANVAS_N / 2, cy = CANVAS_N / 2
+
+  const field = new Float32Array(CANVAS_N * CANVAS_N)
+
+  for (const g of scene) {
+    const sim = allSims[g.slug]
+    if (!sim) continue
+    const positions = interpolateFrame(sim, progress)
+    const meta = sim.particleMeta
+    const rad = (g.angleDeg * Math.PI) / 180
+    const centerXMpc = Math.cos(rad) * g.distanceMpc
+    const centerYMpc = Math.sin(rad) * g.distanceMpc
+
+    const sigmaPx = Math.max(p.pointSize * (1 + progress * 6), 0.5)
+    const r = Math.ceil(sigmaPx * 3.2)
+    const inv2s2 = 1 / (2 * sigmaPx * sigmaPx)
+
+    for (let i = 0; i < meta.length; i++) {
+      const xMpc = centerXMpc + positions[i*2] * g.radiusMpc
+      const yMpc = centerYMpc + positions[i*2+1] * g.radiusMpc
+      const px = cx + xMpc * pxPerMpc
+      const py = cy + yMpc * pxPerMpc
+      if (px < -r || px > CANVAS_N+r || py < -r || py > CANVAS_N+r) continue
+      const amp = 0.18 + meta[i].b * 0.55
+      const x0 = Math.max(0, Math.floor(px-r)), x1 = Math.min(CANVAS_N-1, Math.ceil(px+r))
+      const y0 = Math.max(0, Math.floor(py-r)), y1 = Math.min(CANVAS_N-1, Math.ceil(py+r))
+      for (let y=y0; y<=y1; y++) {
+        const dy2 = (y-py)*(y-py)
+        for (let x=x0; x<=x1; x++) {
+          const dx = x-px
+          field[y*CANVAS_N+x] += amp * Math.exp(-(dx*dx+dy2)*inv2s2)
+        }
+      }
+    }
+  }
+
+  // Flou de fusion PARTAGE sur toute la scene (pas par galaxie) — a forte
+  // dissolution, les halos de galaxies voisines peuvent se meler, ce qui
+  // est physiquement coherent avec l'idee de tout converger vers l'uniforme.
+  const blurPx = Math.pow(progress, 1.5) * 22
+  let toneField
+  if (blurPx > 0.3) {
+    const tmp = document.createElement('canvas')
+    tmp.width = CANVAS_N; tmp.height = CANVAS_N
+    const tctx = tmp.getContext('2d')
+    const grayImg = tctx.createImageData(CANVAS_N, CANVAS_N)
+    for (let i = 0; i < field.length; i++) {
+      const byte = Math.min(255, Math.round((1 - Math.exp(-field[i])) * 255))
+      grayImg.data[i*4]=byte; grayImg.data[i*4+1]=byte; grayImg.data[i*4+2]=byte; grayImg.data[i*4+3]=255
+    }
+    tctx.putImageData(grayImg, 0, 0)
+    const blurred = document.createElement('canvas')
+    blurred.width = CANVAS_N; blurred.height = CANVAS_N
+    const bctx = blurred.getContext('2d')
+    bctx.filter = `blur(${blurPx.toFixed(1)}px)`
+    bctx.drawImage(tmp, 0, 0)
+    const bd = bctx.getImageData(0, 0, CANVAS_N, CANVAS_N).data
+    toneField = new Float32Array(CANVAS_N * CANVAS_N)
+    for (let i = 0; i < toneField.length; i++) toneField[i] = bd[i*4] / 255
+  } else {
+    toneField = new Float32Array(CANVAS_N * CANVAS_N)
+    for (let i = 0; i < field.length; i++) toneField[i] = 1 - Math.exp(-field[i])
+  }
+
+  const filIntensity = 0.7 * 4 * progress * (1 - progress)
+  const uniformMix = Math.pow(progress, 3)
+  const target = universeGlowColor(p.a)
+
+  const out = ctx.createImageData(CANVAS_N, CANVAS_N)
+  for (let i = 0; i < toneField.length; i++) {
+    let v = toneField[i] * (1 + (filamentNoiseCache[i] - 0.5) * 2 * filIntensity)
+    v = Math.min(Math.max(v, 0), 1)
+    const [rr,gg,bb] = colorForValue(v)
+    out.data[i*4]   = Math.round(rr * (1-uniformMix) + target[0] * uniformMix)
+    out.data[i*4+1] = Math.round(gg * (1-uniformMix) + target[1] * uniformMix)
+    out.data[i*4+2] = Math.round(bb * (1-uniformMix) + target[2] * uniformMix)
+    out.data[i*4+3] = 255
+  }
+  ctx.putImageData(out, 0, 0)
+
+  document.getElementById('meta').textContent =
+    `a=${p.a.toExponential(2)} · dissolution ${(progress*100).toFixed(0)}% · uniforme ${(uniformMix*100).toFixed(0)}% · cible rgb(${target.join(',')})`
+}
+
+function renderAll() {
+  const p = getParams()
+  document.getElementById('aVal').textContent = p.a.toExponential(3)
+  document.getElementById('halfWidthVal').textContent = p.halfWidthMpc.toFixed(2)
+  document.getElementById('sizeVal').textContent = p.pointSize.toFixed(1)
+  render()
+}
+;['aSlider','halfWidthSlider','sizeSlider'].forEach(id => document.getElementById(id).addEventListener('input', renderAll))
+
+// ─────────────────────────────────────────────────────────────────────────
+// Lecture animee : a va de aMin (Big Bang / recombinaison) a 1
+// (aujourd'hui), a vitesse reglable. Echelle log -> vitesse constante en
+// log(a), pas en a lineaire (sinon la fin de l'animation, ou a varie tres
+// peu en valeur absolue, semblerait trainer).
+// ─────────────────────────────────────────────────────────────────────────
+let playing = false
+let playStartTs = null
+const A_MIN_LOG = -3.5
+const A_MAX_LOG = 0
+
+function playStep(ts) {
+  if (!playing) return
+  if (playStartTs === null) playStartTs = ts
+  const speedS = parseFloat(document.getElementById('speedSlider').value)
+  const elapsed = (ts - playStartTs) / 1000
+  const frac = Math.min(elapsed / speedS, 1)
+  const logA = A_MIN_LOG + (A_MAX_LOG - A_MIN_LOG) * frac
+  document.getElementById('aSlider').value = logA
+  renderAll()
+  if (frac >= 1) {
+    playing = false
+    document.getElementById('playBtn').textContent = '▶ Lecture (Big Bang → aujourd\'hui)'
+    document.getElementById('playBtn').classList.remove('active')
+    return
+  }
+  requestAnimationFrame(playStep)
+}
+
+document.getElementById('playBtn').addEventListener('click', () => {
+  playing = !playing
+  const btn = document.getElementById('playBtn')
+  if (playing) {
+    // Repart toujours du debut (Big Bang) — coherent avec "l'animation entre
+    // le Big Bang et aujourd'hui" demandee explicitement.
+    document.getElementById('aSlider').value = A_MIN_LOG
+    playStartTs = null
+    btn.textContent = '⏸ Lecture en cours…'
+    btn.classList.add('active')
+    requestAnimationFrame(playStep)
+  } else {
+    btn.textContent = '▶ Lecture (Big Bang → aujourd\'hui)'
+    btn.classList.remove('active')
+  }
+})
+
+document.getElementById('speedSlider').addEventListener('input', () => {
+  document.getElementById('speedVal').textContent = document.getElementById('speedSlider').value + 's'
+})
+document.getElementById('speedVal').textContent = document.getElementById('speedSlider').value + 's'
+
+renderAll()
+</script>
+</body>
+</html>
