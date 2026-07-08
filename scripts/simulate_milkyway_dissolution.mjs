@@ -180,13 +180,24 @@ async function main() {
     // composante turbulente aleatoire (pour casser la symetrie parfaite et
     // laisser la gravite mutuelle former des amas plutot qu'une coquille
     // spherique uniforme).
+    // Composante radiale (dispersion) + turbulente (aleatoire, casse la
+    // symetrie) + TANGENTIELLE (rotation coherente, meme sens pour toutes
+    // les etoiles) — cette derniere represente la conservation du moment
+    // angulaire : le nuage protogalactique s'est effondre EN TOURBILLONNANT
+    // pour creer la rotation du disque actuel (cf. discussion du 8 juillet)
+    // ; en remontant le temps, les etoiles doivent donc etre ejectees avec
+    // un mouvement de rotation qui se "deroule" a mesure qu'elles s'eloignent
+    // (L = r x v_tangentielle a peu pres conserve -> v_tangentielle diminue
+    // quand r augmente), pas juste s'eloigner en ligne droite.
     const radialSpeed = r * 0.0042
     const turbAngle = rng() * Math.PI * 2
     const turbSpeed = (0.25 + rng() * 0.75) * 520
+    const tangentialSpeed = r * 0.0034 // meme ordre de grandeur que radialSpeed -> spirale visible, ni pur radial ni pur tourbillon
+    const tx = -y / r, ty = x / r // perpendiculaire au rayon, sens coherent (anti-horaire) pour toutes les etoiles
     return {
       x, y,
-      vx: (x / r) * radialSpeed + Math.cos(turbAngle) * turbSpeed,
-      vy: (y / r) * radialSpeed + Math.sin(turbAngle) * turbSpeed,
+      vx: (x / r) * radialSpeed + Math.cos(turbAngle) * turbSpeed + tx * tangentialSpeed,
+      vy: (y / r) * radialSpeed + Math.sin(turbAngle) * turbSpeed + ty * tangentialSpeed,
       m: 0.35 + star.b * 1.2, // les etoiles brillantes/du bulbe pesent un peu plus -> restent structurantes
       b: star.b,
       sz: star.sz,
