@@ -31,9 +31,17 @@ N_DISPLAY = 512
 N_KEYFRAMES = 10
 W_COARSE, W_DETAIL = 0.74, 0.67
 OUT_DIR = "../../app/public/data"
+# Echelle physique du champ maitre : cf. retour du 10 juillet — 200 Mpc
+# etait sans rapport avec l'echelle reelle de la scene du Groupe Local
+# (halfWidthMpc va de 0.3 a 2.5 Mpc), rendant le fond visuellement plat
+# une fois recadre a cette echelle, et surtout jamais rattache au meme
+# systeme de coordonnees que les galaxies. 5.0 Mpc (= 2x le halfWidthMpc
+# max du curseur) donne un fond dont le cadrage complet correspond
+# raisonnablement au champ affiche.
+NATIVE_BOX_MPC = 5.0
 
-master = normalize_variance(generate_raw_field(N_MASTER, 200.0, seed=4242))
-print(f"champ maître {N_MASTER}x{N_MASTER} généré")
+master = normalize_variance(generate_raw_field(N_MASTER, NATIVE_BOX_MPC, seed=4242))
+print(f"champ maître {N_MASTER}x{N_MASTER}, échelle native {NATIVE_BOX_MPC} Mpc généré")
 
 log_d_ref = field_to_log_density(master[:N_DISPLAY, :N_DISPLAY] * 1.0)
 VMIN, VMAX = np.percentile(log_d_ref, [1, 99.7])
@@ -51,7 +59,7 @@ for i, (zoom, amp) in enumerate(zip(zooms, amps)):
         pad = N_DISPLAY - coarse_trend.shape[0]
         coarse_trend = np.pad(coarse_trend, ((0, pad), (0, pad)), mode='edge')
 
-    detail = generate_raw_field(N_DISPLAY, 200.0 / zoom, seed=7777 + i)
+    detail = generate_raw_field(N_DISPLAY, NATIVE_BOX_MPC / zoom, seed=7777 + i)
     combined = normalize_variance(coarse_trend) * W_COARSE + normalize_variance(detail) * W_DETAIL
     combined = combined * amp
 
