@@ -175,7 +175,7 @@ for key, max_mpc, seed, parent, margin in GRF_SPECS:
         "center_dex": round(center_dex, 4),
         "compression": True,   # flux de Hubble — cf. bloc "expansion", §11.4.e
         "expansion_strength": EXPANSION_AT_LAYER[key],
-        "filamentarity_ridge_mix": RIDGE_MIX_AT_LAYER[key],   # v3, cf. bloc filamentarity
+        "zeldovich_s_px": 11.0,   # v3.2, cf. bloc zeldovich (Z2 validée 16/07)
         "anchor_a1": ANCHORS_A1.get(key),
         "anchor_scale_mpc": GALAXY_SCALE_MPC if anchored else None,
         "keyframes_a": keyframes,
@@ -420,12 +420,13 @@ matrix["nomenclature"] = {
 
 # ── Blocs de spécification v3 (14 juillet) — cuisson en attente
 matrix["pending_generation"] = [
-    "Recuisson v3 des frames st_* (filamentarity + tone_mapping + field_evolution) + régénération des textures de production density_l*.png avec les mêmes paramètres (décision a du 14/07 : le changement d'aspect a=1 de l'application principale est assumé)",
-    "Cuisson des sprites milkyway_hires (scripts/generate_milkyway_hires_sprites.mjs à écrire)",
-    "glow-test.html à resynchroniser manuellement après recuisson (risque connu de désynchronisation)"
+    "Recuisson v3.2 (moteur zeldovich) : 10 textures de production density_l*.png + frames temporelles st_* + recalibrage ton dissous et plancher C",
+    "Cuisson des 14 frames milkyway_hires (2048², cadrage 2 rayons, splats sz, apodisation) — paramètres calibrés le 15-16/07",
+    "glow-test.html à resynchroniser manuellement après recuisson"
 ]
+
 matrix["filamentarity"] = {
-    "status": "SPÉCIFIÉ le 14/07 — recuisson v3 en attente (pending_generation)",
+    "status": "REMPLACÉ le 16/07 par le bloc zeldovich (v3.2) — les crêtes multi-octaves produisaient de la mousse cellulaire, pas la toile de la référence. Conservé pour l'historique, ne JAMAIS cuire avec.",
     "stage": "Transformée 'ridged' appliquée au champ AVANT field_to_log_density, uniquement sur la composante passe-bande de longueur d'onde comobile < filament_max_scale_mpc ; les échelles supérieures restent gaussiennes.",
     "transform": "ridge = 1 - |2·norm(champ_bande) - 1|^ridge_exponent, mélangé au champ d'origine par ridge_mix ; renforcement HF spectral hf_boost ; assombrissement des vides void_gamma.",
     "filament_max_scale_mpc": 150.0,
@@ -447,8 +448,43 @@ matrix["filamentarity"] = {
         "gamma_calibre": 2.0
     }
 }
+matrix["zeldovich"] = {
+    "status": "VALIDÉ le 16/07 (variante Z2 choisie par Marc) — moteur de densité v3.2. REMPLACE le bloc filamentarity (crêtes, jamais cuit) ET la log-normale pour les layers de champ. Recuisson en attente.",
+    "principle": "La cascade d'héritage FFT (mêmes graines, coarse 0.74 + detail 0.67) produit δ, INCHANGÉE. Densité = dépôt CIC d'une grille de masse advectée par le potentiel du champ : Ψ̂ = i·k·δ̂/k², les caustiques du flot forment les filaments (mécanisme physique réel de la toile).",
+    "displacement_band": "Ψ limité à λ ∈ [lam_min_px, filament_max_scale_mpc comobiles] — la coupure 150 Mpc garantit l'uniformité aux lignes K/L/M (petits filaments seulement, décision c du 14/07).",
+    "lam_min_px": 6,
+    "filament_max_scale_mpc": 150.0,
+    "s_px_a1": 11.0,
+    "mass_grid": 1024,
+    "deposit": "CIC (cloud-in-cell), périodique",
+    "soft_px": 0.7,
+    "exposure": {
+        "formula": "t = (1 − exp(−α · ρ^shape))^void_gamma",
+        "shape": 1.6,
+        "void_gamma": 1.35,
+        "alpha": "GLOBAL UNIQUE, calibré en pooling sur les lignes D..M pour un ton moyen 38/255 à a=1 — tient le rôle de l'ancienne normalisation partagée figée (réponse tonale identique entre layers)."
+    },
+    "temporal": {
+        "formula": "S(s,a) = s_px_a1 × A(s,a)^q — Ψ ne change JAMAIS (mêmes phases), seule l'amplitude du déplacement suit la machinerie d'accrétion existante (a_form par layer). Les caustiques se dénouent continûment ; à S=0 la densité est EXACTEMENT uniforme.",
+        "q": 1.0,
+        "dissolved_tone": "(1 − exp(−α))^void_gamma — découle de la même formule à S=0 ; le plancher de convergence de C y est recalibré ; l'embrasement est inchangé. REMPLACE le ton dissous log-normal (129.4/255)."
+    },
+    "anchors": "Les bosses de galaxies (anchor_a1) sont injectées dans δ AVANT l'advection : le flot se connecte aux galaxies (nœuds-sur-brins). global_suppression = 1.0. La garantie « les vraies galaxies restent les maxima locaux » est re-validée en headless SUR LA DENSITÉ DÉPOSÉE. Amplitude des bosses × A_gal(a) comme avant.",
+    "provenance": "preview_v3_iter4.py, variante Z2 (S=11, lam_min=6, sans halo ni scintillement), grille validée visuellement par Marc le 16/07."
+}
+matrix["web_ambient"] = {
+    "status": "SPÉCIFIÉ le 16/07 (plan validé par Marc) — cuisson en attente",
+    "source_row": "D (l1b) : la toile ambiante de A/B/C est la texture de la ligne D échantillonnée sur la fenêtre courante. Même toile de part et d'autre de la frontière C/D → continuité automatique ; l'upsampling d'une petite région la rend naturellement très diffuse (aucun flou artificiel).",
+    "blend": "screen (§11.3)",
+    "amplitudes": {
+        "milkyway_hires": 0.12,
+        "milkyway": 0.2,
+        "localgroup": 0.35
+    },
+    "temporal": "Suit les frames temporelles de la ligne D (même dissolution S(a)) — aucune cuisson propre, échantillonnage à l'affichage."
+}
 matrix["tone_mapping"] = {
-    "status": "SPÉCIFIÉ le 14/07 — calibration headless en attente (pending_generation)",
+    "status": "Intégré au bloc zeldovich.exposure le 16/07 (α global poolé D..M, cible 38/255 conservée) ; la cascade ton dissous + plancher C reste obligatoire, cf. zeldovich.temporal.dissolved_tone.",
     "problem": "Saut de ton moyen à la frontière C/D : localgroup ≈ 9/255, layers GRF ≈ 130/255 — aucune raison physique (problème n°2 du 14/07).",
     "target_mean_tone_255": [
         30,
@@ -459,20 +495,10 @@ matrix["tone_mapping"] = {
     "validation": "Continuité du ton moyen mesurée à travers le fondu C/D à plusieurs temps (headless, avant tout retour visuel)."
 }
 matrix["field_evolution"] = {
-    "status": "SPÉCIFIÉ le 14/07 — recuisson v3 en attente (pending_generation)",
-    "problem": "v2 : seule l'amplitude est modulée par A(s,a) avant la log-normale — la topologie reste figée, la remontée du temps se lit comme un cross-fade vers un fond uni (constaté sur E≈l2 vers a=0.5). Exigence : les FILAMENTS eux-mêmes se distendent et se dissolvent (accrétion à l'envers).",
-    "principle": "Chaque keyframe temporelle de chaque layer est RÉGÉNÉRÉE en FFT avec les MÊMES graines et MÊMES phases (même toile à un stade antérieur ; l'interpolation entre keyframes reste un morphing du même objet, pas un cross-fade — §11.3 respecté), avec des paramètres dépendant de a.",
-    "schedules": {
-        "filamentarity": "ridge_mix_effectif(s,a) = filamentarity_ridge_mix × A(s,a)^q — la toile se relâche vers l'état gaussien linéaire pré-effondrement",
-        "q": 1.25,
-        "smoothing": "sigma(s,a) = (1 − A(s,a)) × sigma_max_frac × max_mpc — les filaments s'épaississent et fondent dans la moyenne en remontant le temps",
-        "sigma_max_frac": 0.015,
-        "hf_boost": "hf_boost_effectif(s,a) = hf_boost × A(s,a)",
-        "amplitude": "L'enveloppe A(s,a) de la v2 est CONSERVÉE comme modulation finale."
-    },
-    "physical_driver": "Les calendriers sont pilotés par la machinerie d'accrétion existante — a_form(s) et A(s,a) encodent déjà le niveau d'accrétion réel au niveau de zoom et de temps considéré (exigence du 13/07).",
-    "keyframes": "Densité de keyframes à réévaluer aux zones de morphing rapide (balayages denses de continuité, preuve de lissité par division du pas).",
-    "non_regression": "Garantie par construction à a=1 : A=1 → filamentarité pleine (= nouveau look du point 1), sigma=0, amplitude 1."
+    "status": "RÉÉCRIT le 16/07 sur le moteur zeldovich — cuisson en attente",
+    "principle": "Une seule loi : S(s,a) = s_px_a1 × A(s,a)^q (cf. zeldovich.temporal). Le morphing entre keyframes interpole un même objet en déformation (mêmes phases) — §11.3 respecté par construction. Plus de lissage ni de relâchement de crêtes.",
+    "keyframes": "Densité de keyframes à réévaluer aux zones de dénouement rapide (balayages denses de continuité, preuve de lissité).",
+    "non_regression": "a=1 : A=1 → S=11 px = look Z2 validé."
 }
 matrix["real_galaxies"]["milkyway_hires"] = {
     "status": "Spécifié 14/07, paramètres calibrés en prévisualisation 15/07 (corrélation f00/production 0.78) — cuisson des 14 frames en attente",
@@ -489,6 +515,13 @@ matrix["real_galaxies"]["milkyway_hires"] = {
     "runtime": "Mêmes lois que le bloc sprites : progress = 1−A_gal(a), extinction A_gal², mélange screen, plancher cœur.",
     "splats": "Par particule : sigma = sz × (résolution/1024) clampé [0.8, 6.0] px (champ 'sz' de particleMeta), amplitude 0.18 + b×0.55, ton 1−exp(−k·champ) avec k auto-calibré (p99.7 du champ non nul -> ton 0.95)."
 }
+
+# v3.2 (16/07) : suppression ambiante levée + toile ambiante A/B/C
+for _l in matrix["layers"]:
+    if _l.get("anchor_a1"):
+        _l["anchor_a1"]["global_suppression"] = 1.0
+    if _l["key"] in matrix["web_ambient"]["amplitudes"]:
+        _l["web_ambient_amplitude"] = matrix["web_ambient"]["amplitudes"][_l["key"]]
 
 with open(OUT_PATH, "w") as f:
     json.dump(matrix, f, indent=1, ensure_ascii=False)

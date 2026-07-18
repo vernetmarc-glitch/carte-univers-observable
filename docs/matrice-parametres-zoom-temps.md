@@ -320,7 +320,14 @@ dans les blocs du JSON listés dans `pending_generation`. Aucune frame ni
 texture n'a encore été cuite avec ces paramètres — la table évaluée §5 et
 les frames `st_*` restent en état v2.
 
-### 12.a Filamentarité à a=1 (bloc `filamentarity`, colonnes D→M)
+### 12.a Filamentarité par crêtes — REMPLACÉE (cf. §12.e)
+
+*Les §12.a et 12.c-bis décrivent l'approche par crêtes multi-octaves,
+jamais cuite : elle produisait de la mousse cellulaire, pas la toile de la
+référence. Remplacée le 16 juillet par le moteur d'advection de Zel'dovich
+(§12.e). Conservés pour l'historique.*
+
+### 12.a-archive Filamentarité à a=1 (bloc `filamentarity`, colonnes D→M)
 
 Étape de squelettisation avant `field_to_log_density` : transformée
 « ridged » `1−|2n−1|^1.5` mélangée au champ d'origine (`ridge_mix` par
@@ -384,3 +391,34 @@ reste assumé car l'extinction A_gal² domine à ce stade). Corrélation
 f00/production mesurée en prévisualisation : 0.78. Script
 `generate_milkyway_hires_sprites.mjs` à écrire. Absent de `layerWeights.ts`
 production pour l'instant.
+
+### 12.e Moteur v3.2 : advection de Zel'dovich (16 juillet — VALIDÉ, variante Z2)
+
+Remplace §12.a/12.c-bis (crêtes) et la log-normale des layers de champ.
+Après validation visuelle par Marc de la grille de 10 variantes
+(`preview_v3_iter4.py`), la **variante Z2** est gravée : bloc `zeldovich`
+du JSON.
+
+- **Génération** : la cascade d'héritage FFT (mêmes graines) produit δ,
+  inchangée ; densité = dépôt CIC (grille de masse 1024²) advectée par
+  `Ψ̂ = i·k·δ̂/k²`, bande [6 px, **150 Mpc comobiles**] (uniformité K/L/M
+  garantie par construction), déplacement rms **S = 11 px** à a=1,
+  adoucissement 0.7 px. Exposition `t = (1−exp(−α·ρ^1.6))^1.35`, **α
+  global unique** poolé D..M vers 38/255 (rôle de l'ancienne
+  normalisation partagée). Colonne par layer : `zeldovich_s_px`.
+- **Temps** : une seule loi, `S(s,a) = 11 × A(s,a)^q`, q=1 — Ψ ne change
+  jamais, les caustiques se dénouent continûment, à S=0 densité
+  exactement uniforme ; ton dissous = `(1−exp(−α))^1.35`, plancher de C
+  recalibré, embrasement inchangé. `field_evolution` réécrit sur cette loi.
+- **Ancrages (D, trace sur E)** : bosses injectées dans δ AVANT advection
+  (le flot se connecte aux galaxies) ; `global_suppression = 1.0` ;
+  garantie des maxima re-validée sur la densité déposée.
+- **Toile ambiante A/B/C** (bloc `web_ambient`) : texture de la ligne D
+  échantillonnée sur la fenêtre courante, mélange screen, amplitudes
+  C 0.35 / B 0.20 / A 0.12 (colonnes ajustables) — continuité C/D
+  automatique (même toile), diffusion naturelle par upsampling, suit la
+  dissolution S(a) de D. Aucune cuisson propre.
+- **Recuisson** : textures de production `density_l*.png` + frames `st_*`
+  + recalibrages (liste `pending_generation`) ; prévisualisation de
+  contrôle obligatoire avant recuisson (bande D10→M10, cellule C avec
+  toile ambiante, bande de dissolution H).
