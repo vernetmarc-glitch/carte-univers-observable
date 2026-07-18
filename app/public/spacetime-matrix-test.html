@@ -29,6 +29,7 @@
 <div class="panel">
   <label>Zoom — demi-champ demandé (Mpc comobiles) <span class="val" id="zoomVal"></span></label>
   <input type="range" id="zoomSlider" min="-1.699" max="4.1635" step="0.01" value="0" />
+  <div style="margin:4px 0 8px;font-weight:bold;color:#ffd9a0">Ligne : <span id="zoneVal"></span></div>
   <label>Temps cosmique (milliards d'années) <span class="val" id="aVal"></span></label>
   <input type="range" id="aSlider" min="0.000365" max="13.7903" step="0.002" value="13.7903" />
   <div style="display:flex; gap:8px;">
@@ -51,7 +52,15 @@
 // cuites hors-ligne + sprites N-corps ; combinés en "screen" (§11.3),
 // embrasement par canal saturant (§11.4.c), palette au runtime.
 // ═════════════════════════════════════════════════════════════════════
-const CANVAS_N = 300
+let CANVAS_N = 300               // v3.3 : adaptatif (300 drag, 640 au repos)
+const CANVAS_COARSE = 300, CANVAS_FINE = 640
+let refineTimer = null
+function scheduleRender() {
+  CANVAS_N = CANVAS_COARSE
+  render()
+  clearTimeout(refineTimer)
+  refineTimer = setTimeout(() => { CANVAS_N = CANVAS_FINE; render() }, 240)
+}
 const cv = document.getElementById('cv')
 const ctx = cv.getContext('2d')
 
@@ -158,6 +167,27 @@ function layerWeights(hw) {
 }
 
 // Échantillonnage bilinéaire d'une frame 512² à (u,v) ∈ [0,1], clamp aux bords.
+function mipFor(pair0, texelPerPx) {
+  // moyenne de zone en minification — formule IDENTIQUE au pipeline Python
+  if (texelPerPx < 2) return pair0
+  let f = 2
+  while (f * 2 <= Math.min(texelPerPx, 8)) f *= 2
+  if (!pair0.mips) pair0.mips = {}
+  if (!pair0.mips[f]) {
+    const n = pair0.n, m = Math.floor(n / f), out = new Float32Array(m * m)
+    for (let y = 0; y < m; y++) {
+      for (let x = 0; x < m; x++) {
+        let s = 0
+        for (let dy = 0; dy < f; dy++)
+          for (let dx = 0; dx < f; dx++) s += pair0.arr[(y * f + dy) * n + (x * f + dx)]
+        out[y * m + x] = s / (f * f)
+      }
+    }
+    pair0.mips[f] = { arr: out, n: m }
+  }
+  return pair0.mips[f]
+}
+
 function sampleBilinear(frame, n, u, v) {
   const fx = Math.min(Math.max(u, 0), 1) * (n - 1)
   const fy = Math.min(Math.max(v, 0), 1) * (n - 1)
@@ -207,9 +237,19 @@ function spriteVisibility(hwEff) {
     (Math.log10(Math.max(hwEff, 1e-6)) - Math.log10(lo)) / (Math.log10(hi) - Math.log10(lo)))
 }
 
+function aSprite(a) {
+  // v3.3 : fenêtre de CONDENSATION (bloc galaxy_formation) — les galaxies
+  // apparaissent APRÈS les nuages/filaments.
+  const GF = MATRIX.galaxy_formation
+  const x = Math.log10(Math.max(a, 1e-6)) - GF.center_dex
+  let t = (x + GF.halfwidth_dex) / (2 * GF.halfwidth_dex)
+  t = Math.min(Math.max(t, 0), 1)
+  return t * t * (3 - 2 * t)
+}
+
 function compositeSprites(bg, a, hwEff) {
   const SPR = MATRIX.sprites
-  const ag = SpacetimeShared.structureAmplitude(MATRIX.galaxy_scale_mpc, a)
+  const ag = aSprite(a)
   const fade = Math.pow(ag, SPR.fade_exponent) * spriteVisibility(hwEff)
   if (fade <= 1e-4) return bg
   const progress = 1 - ag
@@ -282,8 +322,10 @@ function computeTone(hw, a) {
     const layer = layersByKey[key]
     const w = weights[key]
     const pair = framePairFor(layer, a)
-    const n = pair.f0.n                                // 1024 depuis la v3.2
     const extent = layer.max_mpc * layer.margin_factor // demi-étendue comobile
+    const ratio = (hwEff / extent) * pair.f0.n / CANVAS_N
+    const m0 = mipFor(pair.f0, ratio), m1 = pair.mix > 0 ? mipFor(pair.f1, ratio) : m0
+    const n = m0.n
     active.push({ key, w, A: SpacetimeShared.structureAmplitude(layer.max_mpc, a) })
     for (let y = 0; y < CANVAS_N; y++) {
       const vMpc = ((y + 0.5) / CANVAS_N * 2 - 1) * hwEff
@@ -291,8 +333,8 @@ function computeTone(hw, a) {
       for (let x = 0; x < CANVAS_N; x++) {
         const uMpc = ((x + 0.5) / CANVAS_N * 2 - 1) * hwEff
         const u = uMpc / (2 * extent) + 0.5
-        const t0 = sampleBilinear(pair.f0.arr, n, u, v)
-        const t1 = pair.mix > 0 ? sampleBilinear(pair.f1.arr, n, u, v) : t0
+        const t0 = sampleBilinear(m0.arr, n, u, v)
+        const t1 = pair.mix > 0 ? sampleBilinear(m1.arr, n, u, v) : t0
         bg[y*CANVAS_N+x] += w * (t0 + (t1 - t0) * pair.mix)
       }
     }
@@ -307,14 +349,16 @@ function computeTone(hw, a) {
     if (amb > 1e-3) {
       const l1b = layersByKey['l1b']
       const pairW = framePairFor(l1b, a)
-      const nW = pairW.f0.n
       const extW = l1b.max_mpc * l1b.margin_factor
+      const ratioW = (hwEff / extW) * pairW.f0.n / CANVAS_N
+      const w0 = mipFor(pairW.f0, ratioW), w1 = pairW.mix > 0 ? mipFor(pairW.f1, ratioW) : w0
+      const nW = w0.n
       for (let y = 0; y < CANVAS_N; y++) {
         const v = (((y + 0.5) / CANVAS_N * 2 - 1) * hwEff) / (2 * extW) + 0.5
         for (let x = 0; x < CANVAS_N; x++) {
           const u = (((x + 0.5) / CANVAS_N * 2 - 1) * hwEff) / (2 * extW) + 0.5
-          const t0 = sampleBilinear(pairW.f0.arr, nW, u, v)
-          const t1 = pairW.mix > 0 ? sampleBilinear(pairW.f1.arr, nW, u, v) : t0
+          const t0 = sampleBilinear(w0.arr, nW, u, v)
+          const t1 = pairW.mix > 0 ? sampleBilinear(w1.arr, nW, u, v) : t0
           const i = y * CANVAS_N + x
           bg[i] = 1 - (1 - bg[i]) * (1 - (t0 + (t1 - t0) * pairW.mix) * amb)
         }
@@ -352,6 +396,15 @@ function render() {
 
   document.getElementById('zoomVal').textContent =
     hw >= 100 ? Math.round(hw) + ' Mpc' : hw.toFixed(2) + ' Mpc'
+  // Code de ligne actif (nomenclature A..M) : première ligne dont le
+  // demi-champ d'ancrage couvre la vue.
+  const rows = Object.entries(MATRIX.nomenclature.zoom_rows)
+  let rowCode = rows[rows.length - 1][0], rowInfo = rows[rows.length - 1][1]
+  for (const [code, info] of rows) {
+    if (hw <= info.halfwidth_mpc * 1.0001) { rowCode = code; rowInfo = info; break }
+  }
+  document.getElementById('zoneVal').textContent =
+    rowCode + ' · ' + rowInfo.layer + ' · ' + rowInfo.halfwidth_mpc + ' Mpc'
   document.getElementById('aVal').textContent =
     (tGyr < 0.01 ? (tGyr * 1000).toFixed(1) + ' Ma' : tGyr.toFixed(2) + ' Ga') +
     ' · z=' + (zOfA(a) >= 100 ? Math.round(zOfA(a)) : zOfA(a).toFixed(2)) + ' · a=' + a.toPrecision(3)
@@ -361,8 +414,8 @@ function render() {
     (hwEff < MATRIX.sprites.visible_below_halfwidth_mpc ? ' · + sprites N-corps' : '')
 }
 
-document.getElementById('zoomSlider').addEventListener('input', render)
-document.getElementById('aSlider').addEventListener('input', render)
+document.getElementById('zoomSlider').addEventListener('input', scheduleRender)
+document.getElementById('aSlider').addEventListener('input', scheduleRender)
 document.getElementById('resetBtn').addEventListener('click', () => {
   document.getElementById('aSlider').value = document.getElementById('aSlider').max; render()
 })

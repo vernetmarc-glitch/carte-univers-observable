@@ -148,6 +148,19 @@ def layer_weights(hw):
     return {k: v for k, v in weights.items() if v > 1e-3}
 
 
+def _mip_for(frame, texel_per_px):
+    """Moyenne de zone : niveau mip = plus grande puissance de 2 <= ratio,
+    borné à 8 — identique au prototype JS (contrôle croisé)."""
+    if texel_per_px < 2:
+        return frame, frame.shape[0]
+    f = 2
+    while f * 2 <= min(texel_per_px, 8):
+        f *= 2
+    n = frame.shape[0]
+    m = frame[:n - n % f, :n - n % f].reshape(n // f, f, n // f, f).mean(axis=(1, 3))
+    return m, m.shape[0]
+
+
 def layer_tone_map(entry, a, hw_eff, canvas_n):
     """Frame temporelle interpolée du layer, échantillonnée sur le cadre
     (fenêtre comobile ±hw_eff). Retourne (tone, fraction hors-texture par
@@ -164,7 +177,10 @@ def layer_tone_map(entry, a, hw_eff, canvas_n):
         frac = (math.log10(a) - math.log10(kfs[i0])) / (math.log10(kfs[i1]) - math.log10(kfs[i0]))
         frame = imgs[i0] * (1 - frac) + imgs[i1] * frac
     extent = entry["max_mpc"] * entry["margin_factor"]
-    n_tex = frame.shape[0]
+    # v3.3 : moyenne de zone quand la fenêtre MINIFIE la texture (sans elle,
+    # les petits filaments de K/L/M sont avalés par l'échantillonnage ponctuel)
+    ratio = (hw_eff / extent) * frame.shape[0] / canvas_n
+    frame, n_tex = _mip_for(frame, ratio)
     lin = (np.arange(canvas_n) + 0.5) / canvas_n * 2 - 1
     mpc = lin * hw_eff
     tex = (mpc / (2 * extent) + 0.5) * (n_tex - 1)
@@ -212,6 +228,17 @@ def ambient_amplitude(hw_eff):
     return pts[-1][1]
 
 
+GF = MATRIX["galaxy_formation"]
+
+
+def A_sprite(a):
+    """Fenêtre de formation des galaxies (v3.3 : condensation APRÈS les nuages)."""
+    x = math.log10(max(a, 1e-6)) - GF["center_dex"]
+    t = (x + GF["halfwidth_dex"]) / (2 * GF["halfwidth_dex"])
+    t = min(max(t, 0.0), 1.0)
+    return t * t * (3 - 2 * t)
+
+
 def sprite_visibility(hw_eff):
     """Fondu en S de la zone sprites sur le demi-champ effectif."""
     lo, hi = SPR["visible_fade_band_mpc"]
@@ -225,7 +252,7 @@ def composite_sprites(bg, a, hw_eff, canvas_n):
     extinction = A_gal(a)^fade_exponent (les sprites se dissolvent dans le
     fond AVANT la dissolution du fond lui-même) ; visibilité fondue sur la
     bande visible_fade_band_mpc."""
-    ag = A_gal(a)
+    ag = A_sprite(a)          # v3.3 : les galaxies se condensent APRÈS les nuages
     vis = sprite_visibility(hw_eff)
     fade = (ag ** SPR["fade_exponent"]) * vis
     if fade <= 1e-4:

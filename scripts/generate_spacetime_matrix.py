@@ -175,7 +175,6 @@ for key, max_mpc, seed, parent, margin in GRF_SPECS:
         "center_dex": round(center_dex, 4),
         "compression": True,   # flux de Hubble — cf. bloc "expansion", §11.4.e
         "expansion_strength": EXPANSION_AT_LAYER[key],
-        "zeldovich_s_px": 11.0,   # v3.2, cf. bloc zeldovich (Z2 validée 16/07)
         "anchor_a1": ANCHORS_A1.get(key),
         "anchor_scale_mpc": GALAXY_SCALE_MPC if anchored else None,
         "keyframes_a": keyframes,
@@ -317,10 +316,11 @@ matrix = {
         "frames_dir": "data/dissolution_sprites",
         "frame_pattern": "data/dissolution_sprites/{slug}_f{:02d}.png",
         "n_frames": 14,
-        "frame_resolution": 1024,   # format production (17/07)
+        "frame_resolution": 512,    # sprites de dissolution (9 galaxies), 512²
         # progress = 1 − A_gal(a), frame = progress × 13 (interpolation
         # linéaire entre les deux frames encadrantes)
-        "progress": "1 - A(galaxy_scale_mpc, a)",
+        "progress": "1 - A_sprite(a)  (bloc galaxy_formation, v3.3)",
+        "fade_law": "A_sprite(a)^fade_exponent",
         # Extinction : contribution × A_gal(a)^fade_exponent — exposant 2 =>
         # les sprites se dissolvent DANS le fond AVANT que le fond (ancrages
         # à A_gal^1) ne se dissolve à son tour (séquencement validé 13/07).
@@ -420,11 +420,9 @@ matrix["nomenclature"] = {
 
 # ── Blocs de spécification v3 (14 juillet) — cuisson en attente
 matrix["pending_generation"] = [
-    "Recuisson v3.2 (moteur zeldovich) : 10 textures de production density_l*.png + frames temporelles st_* + recalibrage ton dissous et plancher C",
-    "Cuisson des 14 frames milkyway_hires (2048², cadrage 2 rayons, splats sz, apodisation) — paramètres calibrés le 15-16/07",
-    "glow-test.html à resynchroniser manuellement après recuisson"
+    "Recuisson v3.3 : textures density_l*.png + 114 frames st_* (Ψ comobile, α par frame à ton maintenu, fenêtre galaxies 0.75) — prévisualisation bande D..M avec verrou numérique (identité G10/Z2) avant gravure",
+    "glow-test.html : vérification visuelle de calibration (inchangé)"
 ]
-
 matrix["filamentarity"] = {
     "status": "REMPLACÉ le 16/07 par le bloc zeldovich (v3.2) — les crêtes multi-octaves produisaient de la mousse cellulaire, pas la toile de la référence. Conservé pour l'historique, ne JAMAIS cuire avec.",
     "stage": "Transformée 'ridged' appliquée au champ AVANT field_to_log_density, uniquement sur la composante passe-bande de longueur d'onde comobile < filament_max_scale_mpc ; les échelles supérieures restent gaussiennes.",
@@ -449,7 +447,7 @@ matrix["filamentarity"] = {
     }
 }
 matrix["zeldovich"] = {
-    "status": "VALIDÉ le 16/07 (variante Z2 choisie par Marc) — moteur de densité v3.2. REMPLACE le bloc filamentarity (crêtes, jamais cuit) ET la log-normale pour les layers de champ. Recuisson en attente.",
+    "status": "v3.3 SPÉCIFIÉ le 18/07 (retours Marc sur la v3.2 déployée) — recuisson en attente",
     "principle": "La cascade d'héritage FFT (mêmes graines, coarse 0.74 + detail 0.67) produit δ, INCHANGÉE. Densité = dépôt CIC d'une grille de masse advectée par le potentiel du champ : Ψ̂ = i·k·δ̂/k², les caustiques du flot forment les filaments (mécanisme physique réel de la toile).",
     "displacement_band": "Ψ limité à λ ∈ [lam_min_px, filament_max_scale_mpc comobiles] — la coupure 150 Mpc garantit l'uniformité aux lignes K/L/M (petits filaments seulement, décision c du 14/07).",
     "lam_min_px": 6,
@@ -462,7 +460,8 @@ matrix["zeldovich"] = {
         "formula": "t = (1 − exp(−α · ρ^shape))^void_gamma",
         "shape": 1.6,
         "void_gamma": 1.35,
-        "alpha": "GLOBAL UNIQUE, calibré en pooling sur les lignes D..M pour un ton moyen 38/255 à a=1 — tient le rôle de l'ancienne normalisation partagée figée (réponse tonale identique entre layers)."
+        "target_mean_255": 38.0,
+        "temporal_maintenance": "v3.3 (retour n°1 du 18/07) : α(s,a) est RÉSOLU PAR KEYFRAME pour que le ton moyen de chaque frame soit EXACTEMENT target_mean_255 — la luminosité moyenne est CONSERVÉE pendant la dissolution (la matière s'étale, la lumière ne disparaît pas). L'état dissous est donc un fond uni à 38/255 partagé par tous les layers (remplace l'α global v3.2 et son ton dissous 33/255 qui faisait passer les layers au noir avant l'embrasement). L'embrasement part de ce fond lumineux. Les α résolus sont stockés dans computed.per_layer_frames."
     },
     "temporal": {
         "formula": "S(s,a) = s_px_a1 × A(s,a)^q — Ψ ne change JAMAIS (mêmes phases), seule l'amplitude du déplacement suit la machinerie d'accrétion existante (a_form par layer). Les caustiques se dénouent continûment ; à S=0 la densité est EXACTEMENT uniforme.",
@@ -470,16 +469,41 @@ matrix["zeldovich"] = {
         "dissolved_tone": "(1 − exp(−α))^void_gamma — découle de la même formule à S=0 ; le plancher de convergence de C y est recalibré ; l'embrasement est inchangé. REMPLACE le ton dissous log-normal (129.4/255)."
     },
     "anchors": "Les bosses de galaxies (anchor_a1) sont injectées dans δ AVANT l'advection : le flot se connecte aux galaxies (nœuds-sur-brins). global_suppression = 1.0. La garantie « les vraies galaxies restent les maxima locaux » est re-validée en headless SUR LA DENSITÉ DÉPOSÉE. Amplitude des bosses × A_gal(a) comme avant.",
-    "provenance": "preview_v3_iter4.py, variante Z2 (S=11, lam_min=6, sans halo ni scintillement), grille validée visuellement par Marc le 16/07."
+    "provenance": "preview_v3_iter4.py, variante Z2 (S=11, lam_min=6, sans halo ni scintillement), grille validée visuellement par Marc le 16/07.",
+    "v3_3_coherence": {
+        "problem": "v3.2 : Ψ renormalisé (rms=1) PAR LAYER -> les modes communs à deux zooms recevaient des amplitudes de déplacement différentes -> les caustiques ne s'effondraient pas aux mêmes endroits (structures 'changeantes' en zoomant, retour n°4 du 18/07).",
+        "solution": "Ψ COMOBILE UNIQUE : plus aucune renormalisation par layer — Ψ = ∇∇⁻²δ tel quel (un même mode physique déplace la matière identiquement en Mpc comobiles à tous les zooms, l'héritage de δ garantit alors la cohérence inter-zoom par construction). L'amplitude est portée par un facteur de croissance G GLOBAL.",
+        "growth_calibration": "G calibré pour que le déplacement rms de l3 (ligne G) soit 11 px — reproduit exactement la variante Z2 validée. Valeur stockée dans computed.zeldovich.",
+        "consequences": "D/E un peu plus effondrés (déplacements comobiles plus grands en px aux petits cadres), K..M plus proches de l'uniforme (cohérent avec l'attente 'fond uni' du retour n°3).",
+        "temporal": "G(s,a) = G × A(s,a)^q — même loi qu'avant, appliquée à G."
+    }
+}
+matrix["galaxy_formation"] = {
+    "status": "SPÉCIFIÉ le 18/07 — narration de condensation validée par Marc : brouillard -> nuages/filaments (a_form des layers de champ) -> les galaxies s'y CONDENSENT ensuite. (Le bottom-up cosmologique réel est sciemment écarté, décision réitérée.)",
+    "a_form_sprites": 0.75,
+    "halfwidth_dex": 0.1249,
+    "center_dex": -0.1249,
+    "window_a": [
+        0.5625,
+        1.0
+    ],
+    "drives": "A_sprite(a) pilote : progress et extinction des sprites (toutes galaxies, y compris milkyway_hires), amplitude des bosses d'ancrage injectées dans δ (lignes D/E), amplitude des galaxies procédurales de la texture C. L'EMBRASEMENT garde son propre calage (A_gal a_form=0.20, inchangé).",
+    "comment": "Même forme de fenêtre (smoothstep en log a) que les layers. Valeur 0.75 ajustable après retour visuel."
+}
+matrix["prototype_rendering"] = {
+    "status": "SPÉCIFIÉ le 18/07",
+    "adaptive_canvas": "300 px pendant la manipulation des curseurs, raffinement à 640 px au repos (la pixelisation de la Voie lactée hires venait du canvas 300, pas des sprites 2048).",
+    "minification": "Moyenne de zone (mip par blocs) quand la fenêtre minifie une texture — sans elle les petits filaments de K/L/M sont avalés par l'échantillonnage ponctuel (M paraissait uniforme/noir).",
+    "ui_nomenclature": "Affichage permanent du code de ligne actif : 'D · l1b · 8.49 Mpc' (retour n°6 — les codes A..M sont la langue commune des retours)."
 }
 matrix["web_ambient"] = {
-    "status": "SPÉCIFIÉ le 16/07 (plan validé par Marc) — cuisson en attente",
+    "status": "Amplitudes relevées le 18/07 (0.12/0.20/0.35 -> 0.20/0.35/0.55 : invisibles à l'écran, mesuré ~+7/255 de structure). Ajustables.",
     "source_row": "D (l1b) : la toile ambiante de A/B/C est la texture de la ligne D échantillonnée sur la fenêtre courante. Même toile de part et d'autre de la frontière C/D → continuité automatique ; l'upsampling d'une petite région la rend naturellement très diffuse (aucun flou artificiel).",
     "blend": "screen (§11.3)",
     "amplitudes": {
-        "milkyway_hires": 0.12,
-        "milkyway": 0.2,
-        "localgroup": 0.35
+        "milkyway_hires": 0.2,
+        "milkyway": 0.35,
+        "localgroup": 0.55
     },
     "temporal": "Suit les frames temporelles de la ligne D (même dissolution S(a)) — aucune cuisson propre, échantillonnage à l'affichage."
 }
@@ -495,7 +519,7 @@ matrix["tone_mapping"] = {
     "validation": "Continuité du ton moyen mesurée à travers le fondu C/D à plusieurs temps (headless, avant tout retour visuel)."
 }
 matrix["field_evolution"] = {
-    "status": "RÉÉCRIT le 16/07 sur le moteur zeldovich — cuisson en attente",
+    "status": "CUIT le 17/07 — loi S(s,a) appliquée aux 114 frames",
     "principle": "Une seule loi : S(s,a) = s_px_a1 × A(s,a)^q (cf. zeldovich.temporal). Le morphing entre keyframes interpole un même objet en déformation (mêmes phases) — §11.3 respecté par construction. Plus de lissage ni de relâchement de crêtes.",
     "keyframes": "Densité de keyframes à réévaluer aux zones de dénouement rapide (balayages denses de continuité, preuve de lissité).",
     "non_regression": "a=1 : A=1 → S=11 px = look Z2 validé."
@@ -525,8 +549,11 @@ matrix["real_galaxies"]["milkyway_hires"] = {
     "sprite_halfwidth_units": 2.0
 }
 
-# v3.2 (16/07) : suppression ambiante levée + toile ambiante A/B/C
+# ── Post-traitements v3.3 (18/07)
+matrix["sprites"]["progress"] = "1 - A_sprite(a)  (bloc galaxy_formation, v3.3)"
+matrix["sprites"]["fade_law"] = "A_sprite(a)^fade_exponent"
 for _l in matrix["layers"]:
+    _l.pop("zeldovich_s_px", None)          # v3.3 : G global, plus d'amplitude par layer
     if _l.get("anchor_a1"):
         _l["anchor_a1"]["global_suppression"] = 1.0
     if _l["key"] in matrix["web_ambient"]["amplitudes"]:

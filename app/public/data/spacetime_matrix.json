@@ -106,7 +106,7 @@
   "frame_pattern": "data/dissolution_sprites/{slug}_f{:02d}.png",
   "n_frames": 14,
   "frame_resolution": 512,
-  "progress": "1 - A(galaxy_scale_mpc, a)",
+  "progress": "1 - A_sprite(a)  (bloc galaxy_formation, v3.3)",
   "fade_exponent": 2.0,
   "blend": "screen",
   "visible_fade_band_mpc": [
@@ -115,7 +115,8 @@
   ],
   "catalog_json": "data/local_group_catalog.json",
   "min_render_comment": "Plancher de lisibilité sur le CŒUR galactique : la frame sprite est cadrée sur la dispersion finale (sprite_halfwidth_units ≈ 7-9 rayons), le cœur n'en occupe que ~1/7 ; un plancher sur la frame entière laisse le cœur sous-échantillonné (aliasing -> galaxie invisible). Rendu : frame_half_px = max(physique, min_render_core_px × sprite_halfwidth_units) => le cœur couvre toujours ≥ ~2 px. Léger surdimensionnement des naines assumé.",
-  "min_render_core_px": 1.25
+  "min_render_core_px": 1.25,
+  "fade_law": "A_sprite(a)^fade_exponent"
  },
  "real_galaxies": {
   "generation": {
@@ -280,8 +281,7 @@
     1.0
    ],
    "frame_pattern": "data/st_l5_k{:02d}.png",
-   "frame_resolution": 1024,
-   "zeldovich_s_px": 11.0
+   "frame_resolution": 1024
   },
   {
    "key": "l5a",
@@ -313,8 +313,7 @@
     1.0
    ],
    "frame_pattern": "data/st_l5a_k{:02d}.png",
-   "frame_resolution": 1024,
-   "zeldovich_s_px": 11.0
+   "frame_resolution": 1024
   },
   {
    "key": "l4b",
@@ -346,8 +345,7 @@
     1.0
    ],
    "frame_pattern": "data/st_l4b_k{:02d}.png",
-   "frame_resolution": 1024,
-   "zeldovich_s_px": 11.0
+   "frame_resolution": 1024
   },
   {
    "key": "l4a",
@@ -379,8 +377,7 @@
     1.0
    ],
    "frame_pattern": "data/st_l4a_k{:02d}.png",
-   "frame_resolution": 1024,
-   "zeldovich_s_px": 11.0
+   "frame_resolution": 1024
   },
   {
    "key": "l4",
@@ -412,8 +409,7 @@
     1.0
    ],
    "frame_pattern": "data/st_l4_k{:02d}.png",
-   "frame_resolution": 1024,
-   "zeldovich_s_px": 11.0
+   "frame_resolution": 1024
   },
   {
    "key": "l3b",
@@ -445,8 +441,7 @@
     1.0
    ],
    "frame_pattern": "data/st_l3b_k{:02d}.png",
-   "frame_resolution": 1024,
-   "zeldovich_s_px": 11.0
+   "frame_resolution": 1024
   },
   {
    "key": "l3",
@@ -478,8 +473,7 @@
     1.0
    ],
    "frame_pattern": "data/st_l3_k{:02d}.png",
-   "frame_resolution": 1024,
-   "zeldovich_s_px": 11.0
+   "frame_resolution": 1024
   },
   {
    "key": "l2b",
@@ -522,8 +516,7 @@
     1.0
    ],
    "frame_pattern": "data/st_l2b_k{:02d}.png",
-   "frame_resolution": 1024,
-   "zeldovich_s_px": 11.0
+   "frame_resolution": 1024
   },
   {
    "key": "l2",
@@ -566,8 +559,7 @@
     1.0
    ],
    "frame_pattern": "data/st_l2_k{:02d}.png",
-   "frame_resolution": 1024,
-   "zeldovich_s_px": 11.0
+   "frame_resolution": 1024
   },
   {
    "key": "l1b",
@@ -611,8 +603,7 @@
     1.0
    ],
    "frame_pattern": "data/st_l1b_k{:02d}.png",
-   "frame_resolution": 1024,
-   "zeldovich_s_px": 11.0
+   "frame_resolution": 1024
   },
   {
    "key": "localgroup",
@@ -655,7 +646,7 @@
    ],
    "frame_pattern": "data/st_localgroup_k{:02d}.png",
    "frame_resolution": 1024,
-   "web_ambient_amplitude": 0.35
+   "web_ambient_amplitude": 0.55
   },
   {
    "key": "milkyway",
@@ -680,7 +671,7 @@
    "keyframes_a": [],
    "frame_pattern": null,
    "frame_resolution": null,
-   "web_ambient_amplitude": 0.2
+   "web_ambient_amplitude": 0.35
   },
   {
    "key": "milkyway_hires",
@@ -706,17 +697,17 @@
    "frame_pattern": null,
    "frame_resolution": null,
    "comment": "Ligne A (14/07) : disque Voie lactée détaillé 1024² + fond localgroup. Un layer de zoom = un visuel unique : le sprite hires N'EST PAS une ressource du layer milkyway mais un layer à part entière. Frontière A/B (0.04 Mpc) ajustable après retour visuel. Absent de layerWeights.ts production pour l'instant (zoom prototype).",
-   "web_ambient_amplitude": 0.12
+   "web_ambient_amplitude": 0.2
   }
  ],
  "computed": {
   "zeldovich": {
-   "alpha": 0.249244,
-   "dissolved_tone": 0.129985,
-   "dissolved_tone_255": 33.15,
-   "provenance": "calibré par generate_layers.py (pooling D..M à a=1)"
+   "growth_G": 0.937687,
+   "target_mean_255": 38.0,
+   "dissolved_tone_255": 38.0,
+   "provenance": "G calibré par generate_layers.py (rms l3 = 11 px, Z2 validée) ; α résolu PAR FRAME (ton maintenu, v3.3)"
   },
-  "dissolved_tone_255": 33.15,
+  "dissolved_tone_255": 38.0,
   "per_layer_frames": {
    "l5": [
     {
@@ -724,71 +715,71 @@
      "A_layer": 0.0,
      "A_gal": 0.98538,
      "S_px": 0.0,
-     "mean": 33.146,
+     "mean": 38.0,
      "std": 0.0
     },
     {
      "a": 0.817523,
      "A_layer": 0.04297,
      "A_gal": 0.98874,
-     "S_px": 0.473,
-     "mean": 33.146,
+     "S_px": 0.04,
+     "mean": 38.0,
      "std": 0.0
     },
     {
      "a": 0.841395,
      "A_layer": 0.15625,
      "A_gal": 0.99167,
-     "S_px": 1.719,
-     "mean": 33.146,
+     "S_px": 0.147,
+     "mean": 38.0,
      "std": 0.0
     },
     {
      "a": 0.865964,
      "A_layer": 0.3164,
      "A_gal": 0.99418,
-     "S_px": 3.48,
-     "mean": 33.146,
+     "S_px": 0.297,
+     "mean": 38.0,
      "std": 0.0
     },
     {
      "a": 0.891251,
      "A_layer": 0.5,
      "A_gal": 0.99625,
-     "S_px": 5.5,
-     "mean": 33.146,
+     "S_px": 0.469,
+     "mean": 38.0,
      "std": 0.0
     },
     {
      "a": 0.917276,
      "A_layer": 0.68359,
      "A_gal": 0.99788,
-     "S_px": 7.52,
-     "mean": 33.146,
+     "S_px": 0.641,
+     "mean": 38.0,
      "std": 0.0
     },
     {
      "a": 0.944061,
      "A_layer": 0.84375,
      "A_gal": 0.99905,
-     "S_px": 9.281,
-     "mean": 33.146,
+     "S_px": 0.791,
+     "mean": 38.0,
      "std": 0.0
     },
     {
      "a": 0.971628,
      "A_layer": 0.95703,
      "A_gal": 0.99976,
-     "S_px": 10.527,
-     "mean": 33.146,
+     "S_px": 0.897,
+     "mean": 38.0,
      "std": 0.0
     },
     {
      "a": 1.0,
      "A_layer": 1.0,
      "A_gal": 1.0,
-     "S_px": 11.0,
-     "mean": 33.146,
+     "S_px": 0.938,
+     "mean": 38.0,
      "std": 0.0
     }
    ],
@@ -798,72 +789,72 @@
      "A_layer": 0.0,
      "A_gal": 0.98538,
      "S_px": 0.0,
-     "mean": 33.146,
+     "mean": 38.0,
      "std": 0.0
     },
     {
      "a": 0.817523,
      "A_layer": 0.04297,
      "A_gal": 0.98874,
-     "S_px": 0.473,
-     "mean": 34.903,
-     "std": 20.504
+     "S_px": 0.04,
+     "mean": 38.0,
+     "std": 0.938
     },
     {
      "a": 0.841395,
      "A_layer": 0.15625,
      "A_gal": 0.99167,
-     "S_px": 1.719,
-     "mean": 40.673,
-     "std": 50.471
+     "S_px": 0.147,
+     "mean": 38.0,
+     "std": 3.43
     },
     {
      "a": 0.865964,
      "A_layer": 0.3164,
      "A_gal": 0.99418,
-     "S_px": 3.48,
-     "mean": 39.2,
-     "std": 41.005
+     "S_px": 0.297,
+     "mean": 38.0,
+     "std": 6.981
     },
     {
      "a": 0.891251,
      "A_layer": 0.5,
      "A_gal": 0.99625,
-     "S_px": 5.5,
-     "mean": 37.072,
-     "std": 31.098
+     "S_px": 0.469,
+     "mean": 38.0,
+     "std": 11.048
     },
     {
      "a": 0.917276,
      "A_layer": 0.68359,
      "A_gal": 0.99788,
-     "S_px": 7.52,
-     "mean": 36.623,
-     "std": 28.287
+     "S_px": 0.641,
+     "mean": 38.0,
+     "std": 15.056
     },
     {
      "a": 0.944061,
      "A_layer": 0.84375,
      "A_gal": 0.99905,
-     "S_px": 9.281,
-     "mean": 36.451,
-     "std": 27.006
+     "S_px": 0.791,
+     "mean": 38.0,
+     "std": 18.464
     },
     {
      "a": 0.971628,
      "A_layer": 0.95703,
      "A_gal": 0.99976,
-     "S_px": 10.527,
-     "mean": 36.368,
-     "std": 26.458
+     "S_px": 0.897,
+     "mean": 38.0,
+     "std": 20.807
     },
     {
      "a": 1.0,
      "A_layer": 1.0,
      "A_gal": 1.0,
-     "S_px": 11.0,
-     "mean": 36.34,
-     "std": 26.266
+     "S_px": 0.938,
+     "mean": 38.0,
+     "std": 21.678
     }
    ],
    "l4b": [
@@ -872,72 +863,72 @@
      "A_layer": 0.0,
      "A_gal": 0.98538,
      "S_px": 0.0,
-     "mean": 33.146,
+     "mean": 38.0,
      "std": 0.0
     },
     {
      "a": 0.817523,
      "A_layer": 0.04297,
      "A_gal": 0.98874,
-     "S_px": 0.473,
-     "mean": 33.747,
-     "std": 11.114
+     "S_px": 0.04,
+     "mean": 38.0,
+     "std": 1.378
     },
     {
      "a": 0.841395,
      "A_layer": 0.15625,
      "A_gal": 0.99167,
-     "S_px": 1.719,
-     "mean": 37.594,
-     "std": 42.262
+     "S_px": 0.147,
+     "mean": 38.0,
+     "std": 5.043
     },
     {
      "a": 0.865964,
      "A_layer": 0.3164,
      "A_gal": 0.99418,
-     "S_px": 3.48,
-     "mean": 40.02,
-     "std": 60.007
+     "S_px": 0.297,
+     "mean": 38.0,
+     "std": 10.259
     },
     {
      "a": 0.891251,
      "A_layer": 0.5,
      "A_gal": 0.99625,
-     "S_px": 5.5,
-     "mean": 42.172,
-     "std": 61.466
+     "S_px": 0.469,
+     "mean": 38.0,
+     "std": 16.314
     },
     {
      "a": 0.917276,
      "A_layer": 0.68359,
      "A_gal": 0.99788,
-     "S_px": 7.52,
-     "mean": 42.241,
-     "std": 55.726
+     "S_px": 0.641,
+     "mean": 38.0,
+     "std": 22.503
     },
     {
      "a": 0.944061,
      "A_layer": 0.84375,
      "A_gal": 0.99905,
-     "S_px": 9.281,
-     "mean": 41.009,
-     "std": 49.053
+     "S_px": 0.791,
+     "mean": 38.0,
+     "std": 27.803
     },
     {
      "a": 0.971628,
      "A_layer": 0.95703,
      "A_gal": 0.99976,
-     "S_px": 10.527,
-     "mean": 40.055,
-     "std": 44.765
+     "S_px": 0.897,
+     "mean": 38.0,
+     "std": 31.37
     },
     {
      "a": 1.0,
      "A_layer": 1.0,
      "A_gal": 1.0,
-     "S_px": 11.0,
-     "mean": 39.728,
-     "std": 43.344
+     "S_px": 0.938,
+     "mean": 38.0,
+     "std": 32.669
     }
    ],
    "l4a": [
@@ -946,72 +937,72 @@
      "A_layer": 0.0,
      "A_gal": 0.98538,
      "S_px": 0.0,
-     "mean": 33.146,
+     "mean": 38.0,
      "std": 0.0
     },
     {
      "a": 0.817523,
      "A_layer": 0.04297,
      "A_gal": 0.98874,
-     "S_px": 0.473,
-     "mean": 33.333,
-     "std": 5.931
+     "S_px": 0.04,
+     "mean": 38.0,
+     "std": 1.573
     },
     {
      "a": 0.841395,
      "A_layer": 0.15625,
      "A_gal": 0.99167,
-     "S_px": 1.719,
-     "mean": 35.282,
-     "std": 23.74
+     "S_px": 0.147,
+     "mean": 38.0,
+     "std": 5.73
     },
     {
      "a": 0.865964,
      "A_layer": 0.3164,
      "A_gal": 0.99418,
-     "S_px": 3.48,
-     "mean": 37.759,
-     "std": 46.338
+     "S_px": 0.297,
+     "mean": 38.0,
+     "std": 11.713
     },
     {
      "a": 0.891251,
      "A_layer": 0.5,
      "A_gal": 0.99625,
-     "S_px": 5.5,
-     "mean": 38.5,
-     "std": 58.725
+     "S_px": 0.469,
+     "mean": 38.0,
+     "std": 18.851
     },
     {
      "a": 0.917276,
      "A_layer": 0.68359,
      "A_gal": 0.99788,
-     "S_px": 7.52,
-     "mean": 39.484,
-     "std": 63.784
+     "S_px": 0.641,
+     "mean": 38.0,
+     "std": 26.077
     },
     {
      "a": 0.944061,
      "A_layer": 0.84375,
      "A_gal": 0.99905,
-     "S_px": 9.281,
-     "mean": 40.63,
-     "std": 65.67
+     "S_px": 0.791,
+     "mean": 38.0,
+     "std": 32.072
     },
     {
      "a": 0.971628,
      "A_layer": 0.95703,
      "A_gal": 0.99976,
-     "S_px": 10.527,
-     "mean": 41.425,
-     "std": 66.163
+     "S_px": 0.897,
+     "mean": 38.0,
+     "std": 35.974
     },
     {
      "a": 1.0,
      "A_layer": 1.0,
      "A_gal": 1.0,
-     "S_px": 11.0,
-     "mean": 41.703,
-     "std": 66.195
+     "S_px": 0.938,
+     "mean": 38.0,
+     "std": 37.366
     }
    ],
    "l4": [
@@ -1020,72 +1011,72 @@
      "A_layer": 0.0,
      "A_gal": 0.98538,
      "S_px": 0.0,
-     "mean": 33.146,
+     "mean": 38.0,
      "std": 0.0
     },
     {
      "a": 0.817523,
      "A_layer": 0.04297,
      "A_gal": 0.98874,
-     "S_px": 0.473,
-     "mean": 33.185,
-     "std": 2.662
+     "S_px": 0.04,
+     "mean": 38.0,
+     "std": 1.917
     },
     {
      "a": 0.841395,
      "A_layer": 0.15625,
      "A_gal": 0.99167,
-     "S_px": 1.719,
-     "mean": 33.65,
-     "std": 10.021
+     "S_px": 0.147,
+     "mean": 38.0,
+     "std": 7.03
     },
     {
      "a": 0.865964,
      "A_layer": 0.3164,
      "A_gal": 0.99418,
-     "S_px": 3.48,
-     "mean": 35.018,
-     "std": 21.967
+     "S_px": 0.297,
+     "mean": 38.0,
+     "std": 14.566
     },
     {
      "a": 0.891251,
      "A_layer": 0.5,
      "A_gal": 0.99625,
-     "S_px": 5.5,
-     "mean": 36.632,
-     "std": 35.947
+     "S_px": 0.469,
+     "mean": 38.0,
+     "std": 23.647
     },
     {
      "a": 0.917276,
      "A_layer": 0.68359,
      "A_gal": 0.99788,
-     "S_px": 7.52,
-     "mean": 37.271,
-     "std": 46.572
+     "S_px": 0.641,
+     "mean": 38.0,
+     "std": 32.487
     },
     {
      "a": 0.944061,
      "A_layer": 0.84375,
      "A_gal": 0.99905,
-     "S_px": 9.281,
-     "mean": 37.212,
-     "std": 53.003
+     "S_px": 0.791,
+     "mean": 38.0,
+     "std": 39.288
     },
     {
      "a": 0.971628,
      "A_layer": 0.95703,
      "A_gal": 0.99976,
-     "S_px": 10.527,
-     "mean": 37.079,
-     "std": 56.353
+     "S_px": 0.897,
+     "mean": 38.0,
+     "std": 43.453
     },
     {
      "a": 1.0,
      "A_layer": 1.0,
      "A_gal": 1.0,
-     "S_px": 11.0,
-     "mean": 37.044,
-     "std": 57.427
+     "S_px": 0.938,
+     "mean": 38.0,
+     "std": 44.896
     }
    ],
    "l3b": [
@@ -1094,72 +1085,72 @@
      "A_layer": 0.0,
      "A_gal": 0.98538,
      "S_px": 0.0,
-     "mean": 33.146,
+     "mean": 38.0,
      "std": 0.0
     },
     {
      "a": 0.817523,
      "A_layer": 0.04297,
      "A_gal": 0.98874,
-     "S_px": 0.473,
-     "mean": 33.171,
-     "std": 2.142
+     "S_px": 0.04,
+     "mean": 38.0,
+     "std": 1.618
     },
     {
      "a": 0.841395,
      "A_layer": 0.15625,
      "A_gal": 0.99167,
-     "S_px": 1.719,
-     "mean": 33.476,
-     "std": 7.983
+     "S_px": 0.147,
+     "mean": 38.0,
+     "std": 5.924
     },
     {
      "a": 0.865964,
      "A_layer": 0.3164,
      "A_gal": 0.99418,
-     "S_px": 3.48,
-     "mean": 34.424,
-     "std": 17.168
+     "S_px": 0.297,
+     "mean": 38.0,
+     "std": 12.214
     },
     {
      "a": 0.891251,
      "A_layer": 0.5,
      "A_gal": 0.99625,
-     "S_px": 5.5,
-     "mean": 35.852,
-     "std": 28.747
+     "S_px": 0.469,
+     "mean": 38.0,
+     "std": 19.768
     },
     {
      "a": 0.917276,
      "A_layer": 0.68359,
      "A_gal": 0.99788,
-     "S_px": 7.52,
-     "mean": 36.919,
-     "std": 39.183
+     "S_px": 0.641,
+     "mean": 38.0,
+     "std": 27.43
     },
     {
      "a": 0.944061,
      "A_layer": 0.84375,
      "A_gal": 0.99905,
-     "S_px": 9.281,
-     "mean": 37.265,
-     "std": 46.239
+     "S_px": 0.791,
+     "mean": 38.0,
+     "std": 33.722
     },
     {
      "a": 0.971628,
      "A_layer": 0.95703,
      "A_gal": 0.99976,
-     "S_px": 10.527,
-     "mean": 37.266,
-     "std": 50.158
+     "S_px": 0.897,
+     "mean": 38.0,
+     "std": 37.783
     },
     {
      "a": 1.0,
      "A_layer": 1.0,
      "A_gal": 1.0,
-     "S_px": 11.0,
-     "mean": 37.238,
-     "std": 51.456
+     "S_px": 0.938,
+     "mean": 38.0,
+     "std": 39.224
     }
    ],
    "l3": [
@@ -1168,72 +1159,72 @@
      "A_layer": 0.0,
      "A_gal": 0.98538,
      "S_px": 0.0,
-     "mean": 33.146,
+     "mean": 38.0,
      "std": 0.0
     },
     {
      "a": 0.817523,
      "A_layer": 0.04297,
      "A_gal": 0.98874,
-     "S_px": 0.473,
-     "mean": 33.16,
-     "std": 1.567
+     "S_px": 0.04,
+     "mean": 38.0,
+     "std": 1.767
     },
     {
      "a": 0.841395,
      "A_layer": 0.15625,
      "A_gal": 0.99167,
-     "S_px": 1.719,
-     "mean": 33.324,
-     "std": 5.779
+     "S_px": 0.147,
+     "mean": 38.0,
+     "std": 6.482
     },
     {
      "a": 0.865964,
      "A_layer": 0.3164,
      "A_gal": 0.99418,
-     "S_px": 3.48,
-     "mean": 33.859,
-     "std": 12.132
+     "S_px": 0.297,
+     "mean": 38.0,
+     "std": 13.379
     },
     {
      "a": 0.891251,
      "A_layer": 0.5,
      "A_gal": 0.99625,
-     "S_px": 5.5,
-     "mean": 34.812,
-     "std": 20.233
+     "S_px": 0.469,
+     "mean": 38.0,
+     "std": 21.683
     },
     {
      "a": 0.917276,
      "A_layer": 0.68359,
      "A_gal": 0.99788,
-     "S_px": 7.52,
-     "mean": 35.885,
-     "std": 28.817
+     "S_px": 0.641,
+     "mean": 38.0,
+     "std": 30.013
     },
     {
      "a": 0.944061,
      "A_layer": 0.84375,
      "A_gal": 0.99905,
-     "S_px": 9.281,
-     "mean": 36.66,
-     "std": 35.865
+     "S_px": 0.791,
+     "mean": 38.0,
+     "std": 36.703
     },
     {
      "a": 0.971628,
      "A_layer": 0.95703,
      "A_gal": 0.99976,
-     "S_px": 10.527,
-     "mean": 37.023,
-     "std": 40.282
+     "S_px": 0.897,
+     "mean": 38.0,
+     "std": 40.92
     },
     {
      "a": 1.0,
      "A_layer": 1.0,
      "A_gal": 1.0,
-     "S_px": 11.0,
-     "mean": 37.116,
-     "std": 41.81
+     "S_px": 0.938,
+     "mean": 38.0,
+     "std": 42.394
     }
    ],
    "l2b": [
@@ -1242,7 +1233,7 @@
      "A_layer": 0.0,
      "A_gal": 0.0,
      "S_px": 0.0,
-     "mean": 33.146,
+     "mean": 38.0,
      "std": 0.0
     },
     {
@@ -1250,7 +1241,7 @@
      "A_layer": 0.0,
      "A_gal": 0.0989,
      "S_px": 0.0,
-     "mean": 33.146,
+     "mean": 38.0,
      "std": 0.0
     },
     {
@@ -1258,7 +1249,7 @@
      "A_layer": 0.0,
      "A_gal": 0.33655,
      "S_px": 0.0,
-     "mean": 33.146,
+     "mean": 38.0,
      "std": 0.0
     },
     {
@@ -1266,7 +1257,7 @@
      "A_layer": 0.0,
      "A_gal": 0.62453,
      "S_px": 0.0,
-     "mean": 33.146,
+     "mean": 38.0,
      "std": 0.0
     },
     {
@@ -1274,72 +1265,72 @@
      "A_layer": 0.0,
      "A_gal": 0.87444,
      "S_px": 0.0,
-     "mean": 33.146,
+     "mean": 38.0,
      "std": 0.0
     },
     {
      "a": 0.535702,
      "A_layer": 0.04297,
      "A_gal": 0.90179,
-     "S_px": 0.473,
-     "mean": 33.151,
-     "std": 0.912
+     "S_px": 0.04,
+     "mean": 38.0,
+     "std": 1.996
     },
     {
      "a": 0.585664,
      "A_layer": 0.15624,
      "A_gal": 0.92631,
-     "S_px": 1.719,
-     "mean": 33.207,
-     "std": 3.332
+     "S_px": 0.147,
+     "mean": 38.0,
+     "std": 7.32
     },
     {
      "a": 0.640286,
      "A_layer": 0.3164,
      "A_gal": 0.94777,
-     "S_px": 3.48,
-     "mean": 33.393,
-     "std": 6.837
+     "S_px": 0.297,
+     "mean": 38.0,
+     "std": 15.11
     },
     {
      "a": 0.700001,
      "A_layer": 0.49999,
      "A_gal": 0.96589,
-     "S_px": 5.5,
-     "mean": 33.753,
-     "std": 11.055
+     "S_px": 0.469,
+     "mean": 38.0,
+     "std": 24.395
     },
     {
      "a": 0.765287,
      "A_layer": 0.68359,
      "A_gal": 0.98043,
-     "S_px": 7.519,
-     "mean": 34.247,
-     "std": 15.541
+     "S_px": 0.641,
+     "mean": 38.0,
+     "std": 33.335
     },
     {
      "a": 0.836661,
      "A_layer": 0.84375,
      "A_gal": 0.99113,
-     "S_px": 9.281,
-     "mean": 34.759,
-     "std": 19.673
+     "S_px": 0.791,
+     "mean": 38.0,
+     "std": 40.168
     },
     {
      "a": 0.914692,
      "A_layer": 0.95703,
      "A_gal": 0.99774,
-     "S_px": 10.527,
-     "mean": 35.147,
-     "std": 22.677
+     "S_px": 0.897,
+     "mean": 38.0,
+     "std": 44.318
     },
     {
      "a": 1.0,
      "A_layer": 1.0,
      "A_gal": 1.0,
-     "S_px": 11.0,
-     "mean": 35.296,
-     "std": 23.828
+     "S_px": 0.938,
+     "mean": 38.0,
+     "std": 45.753
     }
    ],
    "l2": [
@@ -1348,7 +1339,7 @@
      "A_layer": 0.0,
      "A_gal": 0.0,
      "S_px": 0.0,
-     "mean": 33.146,
+     "mean": 38.0,
      "std": 0.0
     },
     {
@@ -1356,7 +1347,7 @@
      "A_layer": 0.0,
      "A_gal": 0.08832,
      "S_px": 0.0,
-     "mean": 33.146,
+     "mean": 38.0,
      "std": 0.0
     },
     {
@@ -1364,7 +1355,7 @@
      "A_layer": 0.0,
      "A_gal": 0.30409,
      "S_px": 0.0,
-     "mean": 33.146,
+     "mean": 38.0,
      "std": 0.0
     },
     {
@@ -1372,7 +1363,7 @@
      "A_layer": 0.0,
      "A_gal": 0.57367,
      "S_px": 0.0,
-     "mean": 33.146,
+     "mean": 38.0,
      "std": 0.0
     },
     {
@@ -1380,72 +1371,72 @@
      "A_layer": 0.0,
      "A_gal": 0.82344,
      "S_px": 0.0,
-     "mean": 33.146,
+     "mean": 38.0,
      "std": 0.0
     },
     {
      "a": 0.470542,
      "A_layer": 0.04301,
      "A_gal": 0.86115,
-     "S_px": 0.473,
-     "mean": 33.149,
-     "std": 0.653
+     "S_px": 0.04,
+     "mean": 38.0,
+     "std": 2.404
     },
     {
      "a": 0.524047,
      "A_layer": 0.15631,
      "A_gal": 0.89529,
-     "S_px": 1.719,
-     "mean": 33.177,
-     "std": 2.386
+     "S_px": 0.147,
+     "mean": 38.0,
+     "std": 8.891
     },
     {
      "a": 0.583635,
      "A_layer": 0.31647,
      "A_gal": 0.92541,
-     "S_px": 3.481,
-     "mean": 33.274,
-     "std": 4.884
+     "S_px": 0.297,
+     "mean": 38.0,
+     "std": 18.622
     },
     {
      "a": 0.65,
      "A_layer": 0.50005,
      "A_gal": 0.95107,
-     "S_px": 5.501,
-     "mean": 33.464,
-     "std": 7.845
+     "S_px": 0.469,
+     "mean": 38.0,
+     "std": 30.134
     },
     {
      "a": 0.723911,
      "A_layer": 0.68363,
      "A_gal": 0.9718,
-     "S_px": 7.52,
-     "mean": 33.734,
-     "std": 10.948
+     "S_px": 0.641,
+     "mean": 38.0,
+     "std": 40.296
     },
     {
      "a": 0.806226,
      "A_layer": 0.84377,
      "A_gal": 0.98717,
-     "S_px": 9.281,
-     "mean": 34.027,
-     "std": 13.796
+     "S_px": 0.791,
+     "mean": 38.0,
+     "std": 47.401
     },
     {
      "a": 0.897901,
      "A_layer": 0.95704,
      "A_gal": 0.99672,
-     "S_px": 10.527,
-     "mean": 34.263,
-     "std": 15.886
+     "S_px": 0.897,
+     "mean": 38.0,
+     "std": 51.464
     },
     {
      "a": 1.0,
      "A_layer": 1.0,
      "A_gal": 1.0,
-     "S_px": 11.0,
-     "mean": 34.357,
-     "std": 16.696
+     "S_px": 0.938,
+     "mean": 38.0,
+     "std": 52.815
     }
    ],
    "l1b": [
@@ -1454,7 +1445,7 @@
      "A_layer": 0.0,
      "A_gal": 0.0,
      "S_px": 0.0,
-     "mean": 33.146,
+     "mean": 38.0,
      "std": 0.0
     },
     {
@@ -1462,7 +1453,7 @@
      "A_layer": 0.0,
      "A_gal": 0.06634,
      "S_px": 0.0,
-     "mean": 33.146,
+     "mean": 38.0,
      "std": 0.0
     },
     {
@@ -1470,7 +1461,7 @@
      "A_layer": 0.0,
      "A_gal": 0.23426,
      "S_px": 0.0,
-     "mean": 33.146,
+     "mean": 38.0,
      "std": 0.0
     },
     {
@@ -1478,7 +1469,7 @@
      "A_layer": 0.0,
      "A_gal": 0.45719,
      "S_px": 0.0,
-     "mean": 33.146,
+     "mean": 38.0,
      "std": 0.0
     },
     {
@@ -1486,72 +1477,72 @@
      "A_layer": 0.0,
      "A_gal": 0.68859,
      "S_px": 0.0,
-     "mean": 33.146,
+     "mean": 38.0,
      "std": 0.0
     },
     {
      "a": 0.351265,
      "A_layer": 0.04289,
      "A_gal": 0.75177,
-     "S_px": 0.472,
-     "mean": 33.148,
-     "std": 0.574
+     "S_px": 0.04,
+     "mean": 38.0,
+     "std": 2.346
     },
     {
      "a": 0.407891,
      "A_layer": 0.15613,
      "A_gal": 0.81042,
-     "S_px": 1.717,
-     "mean": 33.17,
-     "std": 2.1
+     "S_px": 0.146,
+     "mean": 38.0,
+     "std": 8.734
     },
     {
      "a": 0.473645,
      "A_layer": 0.31628,
      "A_gal": 0.86334,
-     "S_px": 3.479,
-     "mean": 33.245,
-     "std": 4.303
+     "S_px": 0.297,
+     "mean": 38.0,
+     "std": 18.388
     },
     {
      "a": 0.55,
      "A_layer": 0.49989,
      "A_gal": 0.90934,
-     "S_px": 5.499,
-     "mean": 33.391,
-     "std": 6.92
+     "S_px": 0.469,
+     "mean": 38.0,
+     "std": 29.619
     },
     {
      "a": 0.638663,
      "A_layer": 0.68352,
      "A_gal": 0.9472,
-     "S_px": 7.519,
-     "mean": 33.6,
-     "std": 9.661
+     "S_px": 0.641,
+     "mean": 38.0,
+     "std": 39.53
     },
     {
      "a": 0.74162,
      "A_layer": 0.84371,
      "A_gal": 0.97573,
-     "S_px": 9.281,
-     "mean": 33.825,
-     "std": 12.16
+     "S_px": 0.791,
+     "mean": 38.0,
+     "std": 46.329
     },
     {
      "a": 0.861174,
      "A_layer": 0.95702,
      "A_gal": 0.99373,
-     "S_px": 10.527,
-     "mean": 34.006,
-     "std": 13.981
+     "S_px": 0.897,
+     "mean": 38.0,
+     "std": 50.299
     },
     {
      "a": 1.0,
      "A_layer": 1.0,
      "A_gal": 1.0,
-     "S_px": 11.0,
-     "mean": 34.078,
-     "std": 14.684
+     "S_px": 0.938,
+     "mean": 38.0,
+     "std": 51.688
     }
    ],
    "localgroup": [
@@ -1559,78 +1550,78 @@
      "a": 0.04,
      "A_layer": 0.0,
      "A_gal": 0.0,
-     "mean": 33.146,
+     "mean": 38.0,
      "std": 0.0
     },
     {
      "a": 0.053598,
-     "A_layer": 0.02331,
-     "A_gal": 0.02331,
-     "mean": 32.379,
-     "std": 0.533
+     "A_layer": 0.0,
+     "A_gal": 0.0,
+     "mean": 38.0,
+     "std": 0.0
     },
     {
      "a": 0.071818,
-     "A_layer": 0.08719,
-     "A_gal": 0.08719,
-     "mean": 30.278,
-     "std": 1.994
+     "A_layer": 0.0,
+     "A_gal": 0.0,
+     "mean": 38.0,
+     "std": 0.0
     },
     {
      "a": 0.096231,
-     "A_layer": 0.18261,
-     "A_gal": 0.18261,
-     "mean": 27.138,
-     "std": 4.175
+     "A_layer": 0.0,
+     "A_gal": 0.0,
+     "mean": 38.0,
+     "std": 0.0
     },
     {
      "a": 0.128944,
-     "A_layer": 0.30056,
-     "A_gal": 0.30056,
-     "mean": 23.257,
-     "std": 6.873
+     "A_layer": 0.0,
+     "A_gal": 0.0,
+     "mean": 38.0,
+     "std": 0.0
     },
     {
      "a": 0.172778,
-     "A_layer": 0.43204,
-     "A_gal": 0.43204,
-     "mean": 19.018,
-     "std": 9.687
+     "A_layer": 0.0,
+     "A_gal": 0.0,
+     "mean": 38.0,
+     "std": 0.0
     },
     {
      "a": 0.231512,
-     "A_layer": 0.56802,
-     "A_gal": 0.56802,
-     "mean": 15.295,
-     "std": 11.613
+     "A_layer": 0.0,
+     "A_gal": 0.0,
+     "mean": 38.0,
+     "std": 0.0
     },
     {
      "a": 0.310212,
-     "A_layer": 0.6995,
-     "A_gal": 0.6995,
-     "mean": 12.595,
-     "std": 12.669
+     "A_layer": 0.0,
+     "A_gal": 0.0,
+     "mean": 38.0,
+     "std": 0.0
     },
     {
      "a": 0.415665,
-     "A_layer": 0.81744,
-     "A_gal": 0.81744,
-     "mean": 10.819,
-     "std": 13.252
+     "A_layer": 0.0,
+     "A_gal": 0.0,
+     "mean": 38.0,
+     "std": 0.0
     },
     {
      "a": 0.556967,
-     "A_layer": 0.91285,
-     "A_gal": 0.91285,
-     "mean": 9.732,
-     "std": 13.592
+     "A_layer": 0.0,
+     "A_gal": 0.0,
+     "mean": 38.0,
+     "std": 0.0
     },
     {
      "a": 0.746302,
-     "A_layer": 0.97671,
-     "A_gal": 0.97671,
-     "mean": 9.142,
-     "std": 13.781
+     "A_layer": 0.48688,
+     "A_gal": 0.48688,
+     "mean": 19.771,
+     "std": 10.81
     },
     {
      "a": 1.0,
@@ -1758,7 +1749,8 @@
   "comment": "13 lignes depuis le 14/07 (insertion de milkyway_hires en A, décalage unique des codes : l'ancien C (l1b) devient D, etc.). RÈGLE DE PERMANENCE : les lettres sont attribuées une fois pour toutes ; un layer inséré plus tard prend la première lettre libre suivante (N, O, ...) et c'est la table zoom_rows qui donne l'ordre de zoom, pas l'alphabet — un code désigne donc toujours le même visuel. A = Voie lactée détaillée, M = univers observable ; 0 = recombinaison, 10 = aujourd'hui. Montage étiqueté avec ces codes."
  },
  "pending_generation": [
-  "glow-test.html : aucun changement structurel (mêmes fichiers/format), mais vérification visuelle de la calibration à refaire sur les nouvelles textures v3.2"
+  "Recuisson v3.3 : textures density_l*.png + 114 frames st_* (Ψ comobile, α par frame à ton maintenu, fenêtre galaxies 0.75) — prévisualisation bande D..M avec verrou numérique (identité G10/Z2) avant gravure",
+  "glow-test.html : vérification visuelle de calibration (inchangé)"
  ],
  "filamentarity": {
   "status": "REMPLACÉ le 16/07 par le bloc zeldovich (v3.2) — les crêtes multi-octaves produisaient de la mousse cellulaire, pas la toile de la référence. Conservé pour l'historique, ne JAMAIS cuire avec.",
@@ -1801,7 +1793,7 @@
   "non_regression": "a=1 : A=1 → S=11 px = look Z2 validé."
  },
  "zeldovich": {
-  "status": "CUIT le 17/07 — moteur de densité v3.2 (variante Z2). Textures de production density_l*.png ET frames temporelles st_* (1024², format production) générées par ce moteur, α partagé dans computed.zeldovich. Validation : 163 contrôles + contrôle croisé JS/Python ≤ 4e-8.",
+  "status": "v3.3 SPÉCIFIÉ le 18/07 (retours Marc sur la v3.2 déployée) — recuisson en attente",
   "principle": "La cascade d'héritage FFT (mêmes graines, coarse 0.74 + detail 0.67) produit δ, INCHANGÉE. Densité = dépôt CIC d'une grille de masse advectée par le potentiel du champ : Ψ̂ = i·k·δ̂/k², les caustiques du flot forment les filaments (mécanisme physique réel de la toile).",
   "displacement_band": "Ψ limité à λ ∈ [lam_min_px, filament_max_scale_mpc comobiles] — la coupure 150 Mpc garantit l'uniformité aux lignes K/L/M (petits filaments seulement, décision c du 14/07).",
   "lam_min_px": 6,
@@ -1814,7 +1806,8 @@
    "formula": "t = (1 − exp(−α · ρ^shape))^void_gamma",
    "shape": 1.6,
    "void_gamma": 1.35,
-   "alpha": "GLOBAL UNIQUE, calibré en pooling sur les lignes D..M pour un ton moyen 38/255 à a=1 — tient le rôle de l'ancienne normalisation partagée figée (réponse tonale identique entre layers)."
+   "target_mean_255": 38.0,
+   "temporal_maintenance": "v3.3 (retour n°1 du 18/07) : α(s,a) est RÉSOLU PAR KEYFRAME pour que le ton moyen de chaque frame soit EXACTEMENT target_mean_255 — la luminosité moyenne est CONSERVÉE pendant la dissolution (la matière s'étale, la lumière ne disparaît pas). L'état dissous est donc un fond uni à 38/255 partagé par tous les layers (remplace l'α global v3.2 et son ton dissous 33/255 qui faisait passer les layers au noir avant l'embrasement). L'embrasement part de ce fond lumineux. Les α résolus sont stockés dans computed.per_layer_frames."
   },
   "temporal": {
    "formula": "S(s,a) = s_px_a1 × A(s,a)^q — Ψ ne change JAMAIS (mêmes phases), seule l'amplitude du déplacement suit la machinerie d'accrétion existante (a_form par layer). Les caustiques se dénouent continûment ; à S=0 la densité est EXACTEMENT uniforme.",
@@ -1822,17 +1815,42 @@
    "dissolved_tone": "(1 − exp(−α))^void_gamma — découle de la même formule à S=0 ; le plancher de convergence de C y est recalibré ; l'embrasement est inchangé. REMPLACE le ton dissous log-normal (129.4/255)."
   },
   "anchors": "Les bosses de galaxies (anchor_a1) sont injectées dans δ AVANT l'advection : le flot se connecte aux galaxies (nœuds-sur-brins). global_suppression = 1.0. La garantie « les vraies galaxies restent les maxima locaux » est re-validée en headless SUR LA DENSITÉ DÉPOSÉE. Amplitude des bosses × A_gal(a) comme avant.",
-  "provenance": "preview_v3_iter4.py, variante Z2 (S=11, lam_min=6, sans halo ni scintillement), grille validée visuellement par Marc le 16/07."
+  "provenance": "preview_v3_iter4.py, variante Z2 (S=11, lam_min=6, sans halo ni scintillement), grille validée visuellement par Marc le 16/07.",
+  "v3_3_coherence": {
+   "problem": "v3.2 : Ψ renormalisé (rms=1) PAR LAYER -> les modes communs à deux zooms recevaient des amplitudes de déplacement différentes -> les caustiques ne s'effondraient pas aux mêmes endroits (structures 'changeantes' en zoomant, retour n°4 du 18/07).",
+   "solution": "Ψ COMOBILE UNIQUE : plus aucune renormalisation par layer — Ψ = ∇∇⁻²δ tel quel (un même mode physique déplace la matière identiquement en Mpc comobiles à tous les zooms, l'héritage de δ garantit alors la cohérence inter-zoom par construction). L'amplitude est portée par un facteur de croissance G GLOBAL.",
+   "growth_calibration": "G calibré pour que le déplacement rms de l3 (ligne G) soit 11 px — reproduit exactement la variante Z2 validée. Valeur stockée dans computed.zeldovich.",
+   "consequences": "D/E un peu plus effondrés (déplacements comobiles plus grands en px aux petits cadres), K..M plus proches de l'uniforme (cohérent avec l'attente 'fond uni' du retour n°3).",
+   "temporal": "G(s,a) = G × A(s,a)^q — même loi qu'avant, appliquée à G."
+  }
  },
  "web_ambient": {
-  "status": "CUIT le 17/07 (échantillonnage à l'affichage, aucune frame propre) — implémenté pipeline + prototype",
+  "status": "Amplitudes relevées le 18/07 (0.12/0.20/0.35 -> 0.20/0.35/0.55 : invisibles à l'écran, mesuré ~+7/255 de structure). Ajustables.",
   "source_row": "D (l1b) : la toile ambiante de A/B/C est la texture de la ligne D échantillonnée sur la fenêtre courante. Même toile de part et d'autre de la frontière C/D → continuité automatique ; l'upsampling d'une petite région la rend naturellement très diffuse (aucun flou artificiel).",
   "blend": "screen (§11.3)",
   "amplitudes": {
-   "milkyway_hires": 0.12,
-   "milkyway": 0.2,
-   "localgroup": 0.35
+   "milkyway_hires": 0.2,
+   "milkyway": 0.35,
+   "localgroup": 0.55
   },
   "temporal": "Suit les frames temporelles de la ligne D (même dissolution S(a)) — aucune cuisson propre, échantillonnage à l'affichage."
+ },
+ "galaxy_formation": {
+  "status": "SPÉCIFIÉ le 18/07 — narration de condensation validée par Marc : brouillard -> nuages/filaments (a_form des layers de champ) -> les galaxies s'y CONDENSENT ensuite. (Le bottom-up cosmologique réel est sciemment écarté, décision réitérée.)",
+  "a_form_sprites": 0.75,
+  "halfwidth_dex": 0.1249,
+  "center_dex": -0.1249,
+  "window_a": [
+   0.5625,
+   1.0
+  ],
+  "drives": "A_sprite(a) pilote : progress et extinction des sprites (toutes galaxies, y compris milkyway_hires), amplitude des bosses d'ancrage injectées dans δ (lignes D/E), amplitude des galaxies procédurales de la texture C. L'EMBRASEMENT garde son propre calage (A_gal a_form=0.20, inchangé).",
+  "comment": "Même forme de fenêtre (smoothstep en log a) que les layers. Valeur 0.75 ajustable après retour visuel."
+ },
+ "prototype_rendering": {
+  "status": "SPÉCIFIÉ le 18/07",
+  "adaptive_canvas": "300 px pendant la manipulation des curseurs, raffinement à 640 px au repos (la pixelisation de la Voie lactée hires venait du canvas 300, pas des sprites 2048).",
+  "minification": "Moyenne de zone (mip par blocs) quand la fenêtre minifie une texture — sans elle les petits filaments de K/L/M sont avalés par l'échantillonnage ponctuel (M paraissait uniforme/noir).",
+  "ui_nomenclature": "Affichage permanent du code de ligne actif : 'D · l1b · 8.49 Mpc' (retour n°6 — les codes A..M sont la langue commune des retours)."
  }
 }

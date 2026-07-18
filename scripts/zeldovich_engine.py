@@ -43,10 +43,10 @@ def displacement(delta, world_mpc):
         base = np.where(mask, D / k2, 0)
     px = np.fft.irfft2(1j * kx * base / (2 * np.pi), s=delta.shape)
     py = np.fft.irfft2(1j * ky * base / (2 * np.pi), s=delta.shape)
-    rms = math.sqrt(px.var() + py.var())
-    if rms < 1e-12:
-        return np.zeros_like(delta), np.zeros_like(delta)
-    return px / rms, py / rms
+    # v3.3 : AUCUNE renormalisation par layer — Ψ brut (un même mode physique
+    # déplace identiquement à tous les zooms) ; l'amplitude est portée par le
+    # facteur de croissance G global (calibré sur l3 = Z2 validée).
+    return px, py
 
 
 def _bilinear(f, y, x):
@@ -95,47 +95,64 @@ def density_from_delta(delta, world_mpc, s_px):
     return density_from_psi(displacement(delta, world_mpc), s_px, delta.shape[0])
 
 
-def calibrate_alpha(rhos):
-    """α GLOBAL : ton moyen poolé sur les densités a=1 -> 38/255 (cf. matrice)."""
+TARGET_MEAN = Z["exposure"]["target_mean_255"] / 255.0
+
+
+def calibrate_growth(psi_l3):
+    """G global : rms du déplacement de l3 = 11 px (reproduit la Z2 validée)."""
+    px, py = psi_l3
+    rms = math.sqrt(px.var() + py.var())
+    return 11.0 / rms
+
+
+def solve_alpha(rho, target=None):
+    """α résolu pour que mean(tone) = target (v3.3 : ton maintenu par frame)."""
+    target = TARGET_MEAN if target is None else target
     shape = Z["exposure"]["shape"]
     vg = Z["exposure"]["void_gamma"]
-    alphas = np.linspace(0.02, 2.5, 120)
-    means = [np.mean([np.mean((1 - np.exp(-a * r ** shape)) ** vg) for r in rhos])
-             for a in alphas]
-    return float(alphas[int(np.argmin(np.abs(np.array(means) - 38 / 255)))])
+    rs = rho ** shape
+    lo, hi = 1e-4, 6.0
+    for _ in range(48):
+        mid = 0.5 * (lo + hi)
+        if np.mean((1 - np.exp(-mid * rs)) ** vg) < target:
+            lo = mid
+        else:
+            hi = mid
+    return 0.5 * (lo + hi)
 
 
 def tone(rho, alpha):
     return (1 - np.exp(-alpha * rho ** Z["exposure"]["shape"])) ** Z["exposure"]["void_gamma"]
 
 
-def dissolved_tone(alpha):
-    return float((1 - math.exp(-alpha)) ** Z["exposure"]["void_gamma"])
+def dissolved_tone(alpha=None):
+    """v3.3 : l'état dissous est PAR CONSTRUCTION au ton maintenu (38/255)."""
+    return TARGET_MEAN
 
 
-def store_computed(alpha):
-    """Écrit α et le ton dissous dans matrix.computed.zeldovich (source de
-    vérité pour les frames temporelles et les prototypes)."""
+def store_computed(growth):
+    """Écrit G et le ton maintenu dans matrix.computed.zeldovich."""
     with open(MATRIX_PATH) as f:
         m = json.load(f)
     m.setdefault("computed", {})["zeldovich"] = {
-        "alpha": round(alpha, 6),
-        "dissolved_tone": round(dissolved_tone(alpha), 6),
-        "dissolved_tone_255": round(dissolved_tone(alpha) * 255, 2),
-        "provenance": "calibré par generate_layers.py (pooling D..M à a=1)",
+        "growth_G": round(growth, 6),
+        "target_mean_255": Z["exposure"]["target_mean_255"],
+        "dissolved_tone_255": Z["exposure"]["target_mean_255"],
+        "provenance": "G calibré par generate_layers.py (rms l3 = 11 px, Z2 validée) ; "
+                      "α résolu PAR FRAME (ton maintenu, v3.3)",
     }
     with open(MATRIX_PATH, "w") as f:
         json.dump(m, f, indent=1, ensure_ascii=False)
     return m["computed"]["zeldovich"]
 
 
-def load_alpha():
+def load_growth():
     with open(MATRIX_PATH) as f:
         m = json.load(f)
     zc = m.get("computed", {}).get("zeldovich")
-    if not zc:
-        raise RuntimeError("α non calibré — lancer d'abord generate_layers.py")
-    return zc["alpha"]
+    if not zc or "growth_G" not in zc:
+        raise RuntimeError("G non calibré — lancer d'abord generate_layers.py")
+    return zc["growth_G"]
 
 
 def export_tone_png(t, path):

@@ -422,3 +422,30 @@ du JSON.
   + recalibrages (liste `pending_generation`) ; prévisualisation de
   contrôle obligatoire avant recuisson (bande D10→M10, cellule C avec
   toile ambiante, bande de dissolution H).
+
+### 12.f v3.3 (18 juillet — retours de Marc sur la v3.2 déployée)
+
+Sept retours, quatre familles de correctifs (blocs `zeldovich`,
+`galaxy_formation`, `web_ambient`, `prototype_rendering` du JSON) :
+
+1. **Conservation de la luminosité** : α n'est plus global mais **résolu par
+   keyframe** pour que le ton moyen de chaque frame vaille exactement
+   38/255 — la lumière ne disparaît pas quand les filaments se dissolvent,
+   l'état dissous est un fond uni lumineux partagé, l'embrasement part de
+   là (l'aplat 33/255 v3.2 passait pour du noir, y compris la ligne M).
+2. **Ψ comobile unique** : plus de renormalisation rms par layer — un même
+   mode physique déplace la matière identiquement à tous les zooms (les
+   caustiques coïncident entre lignes adjacentes, retour n°4). Facteur de
+   croissance G global calibré pour reproduire la Z2 validée (rms l3 =
+   11 px, stocké dans `computed`). D/E un peu plus effondrés, K..M plus
+   uniformes — attendu et souhaité.
+3. **Narration de condensation** (`galaxy_formation`, a_form_sprites=0.75) :
+   les nuages/filaments (a_form 0.55 de D) apparaissent d'abord, les
+   galaxies (sprites, bosses d'ancrage, galaxies procédurales de C) s'y
+   condensent ENSUITE (~fenêtre a [0.56, 1]). Le bottom-up réel est
+   sciemment écarté ; l'embrasement garde son calage propre.
+4. **Prototype** : toile ambiante relevée (0.20/0.35/0.55), moyenne de zone
+   en minification (les petits filaments de K/L/M n'étaient pas
+   échantillonnés), canvas adaptatif 300→640 px (la Voie lactée hires
+   était nette, l'écran ne l'était pas), affichage permanent du code de
+   ligne « D · l1b · 8.49 Mpc ».

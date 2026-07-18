@@ -114,6 +114,8 @@ for entry in LAYERS:
         check(diff.max() <= 1.0 + 1e-9, f"{key} a=1 identique à production (±1 quantif.)",
               f"max diff={diff.max():.3f}, moyenne diff={diff.mean():.4f}")
 
+import spacetime_pipeline as _sp
+
 # ═══ C. Séquences de frames ═════════════════════════════════════════════
 print("\n═══ C. Séquences de frames (saturation, continuité, HF) ═══")
 for entry in LAYERS:
@@ -145,8 +147,12 @@ for entry in LAYERS:
     for i, a in enumerate(kfs):
         if A_layer(entry, a) > 0.3 and laps[-1] > 0:
             frac = laps[i] / laps[-1]
-            if frac < 0.02:
-                check(False, f"{key} : HF effondrée à a={a} malgré A={A_layer(entry, a):.2f}",
+            # v3.3 : sur localgroup les galaxies suivent la fenêtre de
+            # CONDENSATION (galaxy_formation) — HF nulle attendue quand
+            # A_sprite ~ 0, on ne contrôle que la fenêtre active.
+            amp_ref = (_sp.A_sprite(a) if key == "localgroup" else A_layer(entry, a))
+            if frac < 0.02 and amp_ref > 0.15:
+                check(False, f"{key} : HF effondrée à a={a} malgré A={amp_ref:.2f}",
                       f"laplacien={frac*100:.1f}% de a=1")
                 break
     else:
@@ -280,9 +286,11 @@ def mw_m31_dist(a):
 # catalogue sont constants par construction -> la séparation géométrique est
 # invariante. La tolérance 3px couvre le mouvement propre N-corps cuit dans
 # les frames (accrétion, PAS de l'expansion).
-d_now, d_half = mw_m31_dist(1.0), mw_m31_dist(0.45)
+# v3.3 : fenêtre de condensation — les sprites sont éteints à a=0.45 ;
+# la constance de l'écart se mesure dans la fenêtre visible (a=0.85).
+d_now, d_half = mw_m31_dist(1.0), mw_m31_dist(0.85)
 check(abs(d_now - d_half) <= 3.0, "Écart apparent MW–M31 constant dans le temps (hw=1.2 Mpc, centroïdes)",
-      f"{d_now:.1f}px (a=1) vs {d_half:.1f}px (a=0.45)")
+      f"{d_now:.1f}px (a=1) vs {d_half:.1f}px (a=0.85)")
 
 # ═══ F. Sprites cuits (problèmes 1/4/5/6 du 13/07) ═══
 print("\n═══ F. Sprites N-corps cuits ═══")

@@ -474,23 +474,21 @@ def main():
     # pour que les frames temporelles utilisent EXACTEMENT la même.
     import zeldovich_engine as ze
 
-    matrix_layers = {l["key"]: l for l in ze._MATRIX["layers"]}
-    rhos = {}
+    psis = {}
     for spec in LAYER_SPECS:
         world = box_mpc(spec["max_mpc"], margin_for(spec["key"]))
-        s_px = matrix_layers[spec["key"]]["zeldovich_s_px"]
-        rhos[spec["key"]] = ze.density_from_delta(fields[spec["key"]], world, s_px)
-        print(f"advection {spec['key']} (S={s_px}px)")
-
-    alpha = ze.calibrate_alpha(list(rhos.values()))
-    computed = ze.store_computed(alpha)
-    print(f"Exposition globale : alpha={alpha:.4f}, ton dissous "
-          f"{computed['dissolved_tone_255']}/255 (ecrit dans la matrice)")
+        psis[spec["key"]] = ze.displacement(fields[spec["key"]], world)
+    growth = ze.calibrate_growth(psis["l3"])       # reproduit la Z2 validée
+    computed = ze.store_computed(growth)
+    print(f"v3.3 : G={growth:.4f} (rms l3 = 11 px), ton maintenu "
+          f"{computed['target_mean_255']}/255")
+    rhos = {k: ze.density_from_psi(psis[k], growth, N) for k in psis}
 
     for spec in LAYER_SPECS:
         out_path = f"../app/public/data/density_{spec['key']}.png"
-        ze.export_tone_png(ze.tone(rhos[spec["key"]], alpha), out_path)
-        print(f"{spec['key']} (max {spec['max_mpc']} Mpc) -> {out_path}")
+        a_k = ze.solve_alpha(rhos[spec["key"]])    # ton maintenu par layer (v3.3)
+        ze.export_tone_png(ze.tone(rhos[spec["key"]], a_k), out_path)
+        print(f"{spec['key']} -> {out_path} (alpha={a_k:.3f})")
 
 
 if __name__ == "__main__":

@@ -107,11 +107,22 @@ for spec in LAYER_SPECS:
 # ── 2. Exposition v3.2 : α GLOBAL calibré par generate_layers.py (matrice
 # computed.zeldovich) — EXACTEMENT le même que les textures de production.
 import zeldovich_engine as ze
-ALPHA = ze.load_alpha()
-DISSOLVED_TONE = ze.dissolved_tone(ALPHA)
+GROWTH = ze.load_growth()
+DISSOLVED_TONE = ze.dissolved_tone()
 Q_TEMPORAL = MATRIX["zeldovich"]["temporal"]["q"]
-print(f"2) Exposition v3.2 : alpha={ALPHA:.4f}, ton dissous "
-      f"{DISSOLVED_TONE*255:.2f}/255, q={Q_TEMPORAL}")
+GF = MATRIX["galaxy_formation"]
+
+
+def a_sprite(a):
+    """Fenêtre de formation des galaxies (v3.3, condensation APRÈS les nuages)."""
+    x = math.log10(max(a, 1e-6)) - GF["center_dex"]
+    t = (x + GF["halfwidth_dex"]) / (2 * GF["halfwidth_dex"])
+    t = min(max(t, 0.0), 1.0)
+    return t * t * (3 - 2 * t)
+
+
+print(f"2) v3.3 : G={GROWTH:.4f}, ton maintenu {DISSOLVED_TONE*255:.0f}/255, "
+      f"q={Q_TEMPORAL}, a_form_sprites={GF['a_form_sprites']}")
 
 def export_frame(norm01, path):
     """Export au format PRODUCTION : 1024², 8 bits — identique aux textures
@@ -147,7 +158,6 @@ for entry in MATRIX["layers"]:
         continue
     spec = specs_by_key[key]
     world = box_mpc(spec["max_mpc"], margin_for(key))
-    s_px_a1 = entry["zeldovich_s_px"]
     has_anchor = bool(entry.get("anchor_a1"))
     if not has_anchor:
         psi = ze.displacement(base_fields[key], world)
@@ -155,14 +165,15 @@ for entry in MATRIX["layers"]:
     stats = []
     for i, a in enumerate(entry["keyframes_a"]):
         aL = structure_amplitude(entry, a)
-        S = s_px_a1 * (aL ** Q_TEMPORAL)
+        S = GROWTH * (aL ** Q_TEMPORAL)            # v3.3 : G global, Ψ comobile
         if has_anchor:
-            delta_a = base_fields[key] + anchor_contrib * a_gal(a)
+            # bosses de galaxies : fenêtre de CONDENSATION (a_form_sprites)
+            delta_a = base_fields[key] + anchor_contrib * a_sprite(a)
             psi_a = ze.displacement(delta_a, world)
         else:
             psi_a = psi
         rho = ze.density_from_psi(psi_a, S, N)
-        tone = ze.tone(rho, ALPHA)
+        tone = ze.tone(rho, ze.solve_alpha(rho))   # α par frame : ton maintenu
         small = export_frame(tone, f"{OUT_DIR}/st_{key}_k{i:02d}.png")
         stats.append({"a": a, "A_layer": round(aL, 5), "A_gal": round(a_gal(a), 5),
                       "S_px": round(S, 3),
@@ -182,7 +193,7 @@ VMAX_LG = rb["vmax_reference"]
 
 stats = []
 for i, a in enumerate(lg_entry["keyframes_a"]):
-    ag = a_gal(a)
+    ag = a_sprite(a)   # v3.3 : fenêtre de condensation
     floor = (1.0 - ag) * DISSOLVED_TONE * VMAX_LG
     # Formule §4.8 exacte : champ existant + amplitude × champ FFT normalisé
     # (les valeurs négatives du champ FFT sont écrêtées par le clip d'export,
